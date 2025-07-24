@@ -61,6 +61,16 @@
             transform: none;
         }
         
+        .btn.secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
+        }
+        
+        .btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
         .player-section {
             background: rgba(255, 255, 255, 0.1);
             padding: 30px;
@@ -204,6 +214,25 @@
             margin-bottom: 10px;
             line-height: 1.5;
         }
+
+        .token-section {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+        }
+
+        .token-input {
+            width: 100%;
+            max-width: 500px;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
         
         @keyframes pulse {
             0% { opacity: 1; }
@@ -220,35 +249,29 @@
     <div class="container">
         <h1>🎵 Spotify AI DJ</h1>
         
-        <div class="setup-instructions">
-            <h3>⚠️ Authentication Issue Detected</h3>
-            <p>Due to Spotify's updated security requirements, we need to use a different approach for authentication. Here's what we need to do:</p>
-            <ol>
-                <li><strong>Get your Spotify access token manually:</strong>
-                    <ul>
-                        <li>Go to <a href="https://developer.spotify.com/console/get-current-user/" target="_blank" style="color: #1ed760;">Spotify Web API Console</a></li>
-                        <li>Click "Get Token" and select these scopes:
-                            <ul>
-                                <li>✅ user-read-playback-state</li>
-                                <li>✅ user-modify-playback-state</li>
-                                <li>✅ user-read-currently-playing</li>
-                                <li>✅ streaming</li>
-                            </ul>
-                        </li>
-                        <li>Copy the generated token</li>
-                    </ul>
-                </li>
-                <li><strong>Paste the token below and click "Connect with Token"</strong></li>
-            </ol>
+        <div class="setup-instructions" id="authInstructions">
+            <h3>🎧 Welcome to Spotify AI DJ</h3>
+            <p>This app creates seamless transitions between your Spotify tracks using AI analysis of tempo, key, and energy levels.</p>
+            <p><strong>Click "Login with Spotify" below to get started!</strong></p>
+            
+            <div class="token-section" id="manualTokenSection" style="display: none;">
+                <h4>Alternative: Manual Token Method</h4>
+                <p>If the automatic login doesn't work, you can use a manual token:</p>
+                <ol>
+                    <li>Go to <a href="https://developer.spotify.com/console/get-current-user/" target="_blank" style="color: #1ed760;">Spotify Web API Console</a></li>
+                    <li>Click "Get Token" and select these scopes: user-read-playback-state, user-modify-playback-state, user-read-currently-playing, streaming</li>
+                    <li>Copy the token and paste it below:</li>
+                </ol>
+                <input type="text" id="tokenInput" class="token-input" placeholder="Paste your Spotify access token here...">
+                <br>
+                <button id="connectWithTokenBtn" class="btn secondary">Connect with Token</button>
+            </div>
         </div>
         
         <div class="auth-section">
-            <div style="margin-bottom: 15px;">
-                <input type="text" id="tokenInput" placeholder="Paste your Spotify access token here..." 
-                       style="width: 400px; padding: 10px; border-radius: 5px; border: none; margin-right: 10px;">
-                <button id="connectWithTokenBtn" class="btn">Connect with Token</button>
-            </div>
-            <button id="loginBtn" class="btn" style="display: none;">Try Direct Login (might not work)</button>
+            <button id="loginBtn" class="btn">🎵 Login with Spotify</button>
+            <button id="logoutBtn" class="btn secondary" style="display: none;">Logout</button>
+            <button id="showTokenBtn" class="btn secondary" style="margin-left: 10px;">Use Manual Token</button>
             <div id="connectionStatus" class="status disconnected">Not Connected</div>
         </div>
         
@@ -305,22 +328,28 @@
             <div id="logContainer">
                 <div class="log-entry">
                     <strong>System Ready</strong><br>
-                    Waiting for Spotify connection... Get your token from the Web API Console above.
+                    Click "Login with Spotify" above to start using the AI DJ features!
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Spotify Configuration
+        // Spotify OAuth Configuration
         const CLIENT_ID = 'e60ede83721246198bf4fe8a9bee8ca8';
+        const REDIRECT_URI = window.location.origin + window.location.pathname;
+        const SCOPE = 'user-read-playback-state user-modify-playback-state user-read-currently-playing streaming user-read-private user-read-email';
         
+        // Token storage
         let accessToken = null;
+        let refreshToken = null;
+        let tokenExpiry = null;
         let currentTrack = null;
         let trackAnalysis = null;
         let isTransitioning = false;
         let lastSkipTime = 0;
         let monitoringInterval = null;
+        let refreshInterval = null;
         
         // Key mapping for musical keys
         const keyMap = {
@@ -331,15 +360,214 @@
         // Initialize the app
         document.addEventListener('DOMContentLoaded', function() {
             setupEventListeners();
-            logTransition('info', 'Ready! Get your access token from the Spotify Web API Console.');
+            
+            // Check for stored tokens
+            loadStoredTokens();
+            
+            // Check for authorization code in URL
+            handleAuthCallback();
+            
+            logTransition('info', 'Ready! Click "Login with Spotify" to connect.');
         });
         
         function setupEventListeners() {
-            document.getElementById('connectWithTokenBtn').addEventListener('click', connectWithToken);
             document.getElementById('loginBtn').addEventListener('click', loginToSpotify);
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            document.getElementById('showTokenBtn').addEventListener('click', toggleManualTokenSection);
+            document.getElementById('connectWithTokenBtn').addEventListener('click', connectWithToken);
             document.getElementById('playPauseBtn').addEventListener('click', togglePlayback);
             document.getElementById('nextBtn').addEventListener('click', handleSkip);
             document.getElementById('prevBtn').addEventListener('click', previousTrack);
+        }
+        
+        function loadStoredTokens() {
+            // Load tokens from localStorage if available
+            const stored = localStorage.getItem('spotify_tokens');
+            if (stored) {
+                try {
+                    const tokens = JSON.parse(stored);
+                    if (tokens.expiry && Date.now() < tokens.expiry) {
+                        accessToken = tokens.access_token;
+                        refreshToken = tokens.refresh_token;
+                        tokenExpiry = tokens.expiry;
+                        
+                        // Verify token is still valid
+                        verifyAndInitialize();
+                        return;
+                    } else if (tokens.refresh_token) {
+                        // Token expired but we have refresh token
+                        refreshToken = tokens.refresh_token;
+                        refreshAccessToken();
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Error loading stored tokens:', error);
+                    localStorage.removeItem('spotify_tokens');
+                }
+            }
+        }
+        
+        function saveTokens(tokens) {
+            const tokenData = {
+                access_token: tokens.access_token,
+                refresh_token: tokens.refresh_token || refreshToken,
+                expiry: Date.now() + (tokens.expires_in * 1000)
+            };
+            
+            localStorage.setItem('spotify_tokens', JSON.stringify(tokenData));
+            
+            accessToken = tokenData.access_token;
+            refreshToken = tokenData.refresh_token;
+            tokenExpiry = tokenData.expiry;
+            
+            // Set up automatic refresh
+            setupTokenRefresh();
+        }
+        
+        function setupTokenRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+            
+            // Refresh token 5 minutes before expiry
+            const refreshTime = tokenExpiry - Date.now() - (5 * 60 * 1000);
+            
+            if (refreshTime > 0) {
+                setTimeout(() => {
+                    refreshAccessToken();
+                }, refreshTime);
+            }
+        }
+        
+        async function refreshAccessToken() {
+            if (!refreshToken) {
+                logTransition('error', 'No refresh token available. Please log in again.');
+                logout();
+                return;
+            }
+            
+            try {
+                // Note: In a real app, this should be done on your backend server
+                // This is just for demonstration purposes
+                const response = await fetch('https://accounts.spotify.com/api/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        grant_type: 'refresh_token',
+                        refresh_token: refreshToken,
+                        client_id: CLIENT_ID
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Token refresh failed');
+                }
+                
+                const tokens = await response.json();
+                saveTokens(tokens);
+                
+                logTransition('info', 'Access token refreshed successfully');
+                
+            } catch (error) {
+                logTransition('error', `Token refresh failed: ${error.message}`);
+                logout();
+            }
+        }
+        
+        function loginToSpotify() {
+            // Generate state for security
+            const state = generateRandomString(16);
+            localStorage.setItem('spotify_auth_state', state);
+            
+            // Create authorization URL
+            const authUrl = new URL('https://accounts.spotify.com/authorize');
+            authUrl.searchParams.append('response_type', 'code');
+            authUrl.searchParams.append('client_id', CLIENT_ID);
+            authUrl.searchParams.append('scope', SCOPE);
+            authUrl.searchParams.append('redirect_uri', REDIRECT_URI);
+            authUrl.searchParams.append('state', state);
+            authUrl.searchParams.append('show_dialog', 'false');
+            
+            // Redirect to Spotify authorization
+            window.location.href = authUrl.toString();
+        }
+        
+        async function handleAuthCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            const error = urlParams.get('error');
+            
+            if (error) {
+                logTransition('error', `Authorization failed: ${error}`);
+                return;
+            }
+            
+            if (code) {
+                // Verify state
+                const storedState = localStorage.getItem('spotify_auth_state');
+                if (state !== storedState) {
+                    logTransition('error', 'Authorization state mismatch');
+                    return;
+                }
+                
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                localStorage.removeItem('spotify_auth_state');
+                
+                // Exchange code for tokens
+                await exchangeCodeForTokens(code);
+            }
+        }
+        
+        async function exchangeCodeForTokens(code) {
+            try {
+                updateConnectionStatus('analyzing', 'Exchanging authorization code...');
+                
+                // Note: In a real production app, this should be done on your backend server
+                // to keep the client secret secure. This is just for demonstration.
+                const response = await fetch('https://accounts.spotify.com/api/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        grant_type: 'authorization_code',
+                        code: code,
+                        redirect_uri: REDIRECT_URI,
+                        client_id: CLIENT_ID
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error_description || 'Token exchange failed');
+                }
+                
+                const tokens = await response.json();
+                saveTokens(tokens);
+                
+                await initializeWithTokens();
+                
+            } catch (error) {
+                updateConnectionStatus('disconnected', 'Authorization failed');
+                logTransition('error', `Token exchange failed: ${error.message}`);
+            }
+        }
+        
+        function toggleManualTokenSection() {
+            const section = document.getElementById('manualTokenSection');
+            const btn = document.getElementById('showTokenBtn');
+            
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                btn.textContent = 'Hide Manual Token';
+            } else {
+                section.style.display = 'none';
+                btn.textContent = 'Use Manual Token';
+            }
         }
         
         function connectWithToken() {
@@ -351,41 +579,107 @@
             }
             
             accessToken = token;
-            initializeWithToken(token);
+            // For manual tokens, we don't have refresh capability
+            tokenExpiry = Date.now() + (3600 * 1000); // Assume 1 hour expiry
+            
+            initializeWithTokens();
         }
         
-        async function initializeWithToken(token) {
+        async function verifyAndInitialize() {
             try {
-                // Test the token by getting current user
+                const response = await fetch('https://api.spotify.com/v1/me', {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Token verification failed');
+                }
+                
+                await initializeWithTokens();
+                
+            } catch (error) {
+                // Token is invalid, try to refresh
+                if (refreshToken) {
+                    await refreshAccessToken();
+                } else {
+                    logout();
+                }
+            }
+        }
+        
+        async function initializeWithTokens() {
+            try {
+                // Get current user info
                 const userResponse = await fetch('https://api.spotify.com/v1/me', {
                     headers: {
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${accessToken}`
                     }
                 });
                 
                 if (!userResponse.ok) {
-                    throw new Error('Invalid token or token expired');
+                    throw new Error('Failed to get user info');
                 }
                 
                 const user = await userResponse.json();
                 updateConnectionStatus('connected', `Connected as ${user.display_name || user.id}`);
                 
+                // Show authenticated UI
+                document.getElementById('loginBtn').style.display = 'none';
+                document.getElementById('logoutBtn').style.display = 'inline-block';
+                document.getElementById('showTokenBtn').style.display = 'none';
+                document.getElementById('authInstructions').style.display = 'none';
                 document.getElementById('playerSection').style.display = 'block';
                 document.getElementById('analysisSection').style.display = 'block';
                 
                 // Start monitoring playback
-                startPlaybackMonitoring(token);
+                startPlaybackMonitoring();
+                
+                // Setup token refresh if we have refresh token
+                if (refreshToken) {
+                    setupTokenRefresh();
+                }
                 
                 logTransition('success', `Successfully connected! Monitoring playback for ${user.display_name || user.id}`);
                 
             } catch (error) {
                 updateConnectionStatus('disconnected', 'Connection failed');
                 logTransition('error', `Connection failed: ${error.message}`);
-                alert('Connection failed. Please get a new token from the Spotify Web API Console.');
             }
         }
         
-        async function startPlaybackMonitoring(token) {
+        function logout() {
+            // Clear all tokens and intervals
+            accessToken = null;
+            refreshToken = null;
+            tokenExpiry = null;
+            localStorage.removeItem('spotify_tokens');
+            
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+                monitoringInterval = null;
+            }
+            
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+            
+            // Reset UI
+            document.getElementById('loginBtn').style.display = 'inline-block';
+            document.getElementById('logoutBtn').style.display = 'none';
+            document.getElementById('showTokenBtn').style.display = 'inline-block';
+            document.getElementById('authInstructions').style.display = 'block';
+            document.getElementById('playerSection').style.display = 'none';
+            document.getElementById('analysisSection').style.display = 'none';
+            document.getElementById('manualTokenSection').style.display = 'none';
+            
+            updateConnectionStatus('disconnected', 'Not Connected');
+            logTransition('info', 'Logged out. Click "Login with Spotify" to reconnect.');
+        }
+        
+        async function startPlaybackMonitoring() {
             // Stop any existing monitoring
             if (monitoringInterval) {
                 clearInterval(monitoringInterval);
@@ -394,24 +688,35 @@
             // Monitor every 500ms
             monitoringInterval = setInterval(async () => {
                 try {
-                    await checkCurrentPlayback(token);
+                    await checkCurrentPlayback();
                 } catch (error) {
                     console.error('Monitoring error:', error);
+                    
+                    // If token expired, try to refresh
+                    if (error.message.includes('401') && refreshToken) {
+                        await refreshAccessToken();
+                    }
                 }
             }, 500);
         }
         
-        async function checkCurrentPlayback(token) {
+        async function checkCurrentPlayback() {
+            if (!accessToken) return;
+            
             try {
                 const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
                     headers: {
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${accessToken}`
                     }
                 });
                 
                 if (response.status === 204) {
                     // No track playing
                     return;
+                }
+                
+                if (response.status === 401) {
+                    throw new Error('Token expired (401)');
                 }
                 
                 if (!response.ok) {
@@ -421,22 +726,23 @@
                 const data = await response.json();
                 
                 if (data && data.item) {
-                    await handleTrackChange(data, token);
+                    await handleTrackChange(data);
                 }
                 
             } catch (error) {
                 console.error('Playback check error:', error);
+                throw error; // Re-throw to trigger token refresh logic
             }
         }
         
-        async function handleTrackChange(data, token) {
+        async function handleTrackChange(data) {
             const newTrack = data.item;
             const wasSkipped = currentTrack && 
                               currentTrack.id !== newTrack.id && 
                               (Date.now() - lastSkipTime) < 3000;
             
             if (wasSkipped && !isTransitioning) {
-                await handleSeamlessTransition(currentTrack, newTrack, token);
+                await handleSeamlessTransition(currentTrack, newTrack);
             }
             
             currentTrack = newTrack;
@@ -444,19 +750,19 @@
             
             // Analyze new track
             if (currentTrack && (!trackAnalysis || trackAnalysis.id !== currentTrack.id)) {
-                await analyzeCurrentTrack(token);
+                await analyzeCurrentTrack();
             }
         }
         
-        async function handleSeamlessTransition(oldTrack, newTrack, token) {
+        async function handleSeamlessTransition(oldTrack, newTrack) {
             isTransitioning = true;
             logTransition('analyzing', `🎵 Analyzing transition: "${oldTrack.name}" → "${newTrack.name}"`);
             
             try {
                 // Get audio features for both tracks
                 const [oldFeatures, newFeatures] = await Promise.all([
-                    getAudioFeatures(oldTrack.id, token),
-                    getAudioFeatures(newTrack.id, token)
+                    getAudioFeatures(oldTrack.id),
+                    getAudioFeatures(newTrack.id)
                 ]);
                 
                 // Calculate optimal transition point
@@ -464,7 +770,7 @@
                 
                 // Apply the transition
                 if (transitionPoint > 5) { // Only seek if it's a significant jump
-                    await seekToPosition(transitionPoint * 1000, token);
+                    await seekToPosition(transitionPoint * 1000);
                     logTransition('success', 
                         `✨ Perfect transition! Started at ${transitionPoint.toFixed(1)}s for beat alignment. ` +
                         `Tempo: ${oldFeatures.tempo.toFixed(1)} → ${newFeatures.tempo.toFixed(1)} BPM`
@@ -537,169 +843,4 @@
                 0: [0, 7, 5],   // C: C, G, F
                 1: [1, 8, 6],   // C#: C#, G#, F#
                 2: [2, 9, 7],   // D: D, A, G
-                3: [3, 10, 8],  // D#: D#, A#, G#
-                4: [4, 11, 9],  // E: E, B, A
-                5: [5, 0, 10],  // F: F, C, A#
-                6: [6, 1, 11],  // F#: F#, C#, B
-                7: [7, 2, 0],   // G: G, D, C
-                8: [8, 3, 1],   // G#: G#, D#, C#
-                9: [9, 4, 2],   // A: A, E, D
-                10: [10, 5, 3], // A#: A#, F, D#
-                11: [11, 6, 4]  // B: B, F#, E
-            };
-            
-            const compatible = compatibleKeys[key1] || [];
-            return compatible.includes(key2) ? 1 : 0.6;
-        }
-        
-        async function analyzeCurrentTrack(token) {
-            if (!currentTrack) return;
-            
-            try {
-                const features = await getAudioFeatures(currentTrack.id, token);
-                trackAnalysis = features;
-                updateAnalysisDisplay(features);
-            } catch (error) {
-                console.error('Analysis failed:', error);
-            }
-        }
-        
-        async function getAudioFeatures(trackId, token) {
-            const response = await fetch(`https://api.spotify.com/v1/audio-features/${trackId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to get audio features');
-            }
-            
-            return response.json();
-        }
-        
-        async function seekToPosition(positionMs, token) {
-            await fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${positionMs}`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-        }
-        
-        function updateTrackDisplay(track, data) {
-            document.getElementById('trackName').textContent = track.name;
-            document.getElementById('trackArtist').textContent = track.artists.map(a => a.name).join(', ');
-            
-            if (track.album.images.length > 0) {
-                document.getElementById('trackImage').src = track.album.images[1]?.url || track.album.images[0]?.url;
-            }
-            
-            const progress = Math.round(data.progress_ms / 1000);
-            const duration = Math.round(track.duration_ms / 1000);
-            document.getElementById('trackProgress').textContent = `${formatTime(progress)} / ${formatTime(duration)}`;
-            
-            const playPauseBtn = document.getElementById('playPauseBtn');
-            playPauseBtn.textContent = data.is_playing ? '⏸️ Pause' : '▶️ Play';
-        }
-        
-        function updateAnalysisDisplay(features) {
-            document.getElementById('trackTempo').textContent = `${features.tempo.toFixed(1)} BPM`;
-            document.getElementById('trackKey').textContent = `${keyMap[features.key]} ${features.mode ? 'Major' : 'Minor'}`;
-            document.getElementById('trackEnergy').textContent = `${(features.energy * 100).toFixed(0)}%`;
-            document.getElementById('trackDance').textContent = `${(features.danceability * 100).toFixed(0)}%`;
-            document.getElementById('trackValence').textContent = `${(features.valence * 100).toFixed(0)}%`;
-            
-            // Calculate beat confidence from tempo confidence (if available)
-            const confidence = features.tempo_confidence || 0.8;
-            document.getElementById('beatConfidence').textContent = `${(confidence * 100).toFixed(0)}%`;
-        }
-        
-        function logTransition(type, message) {
-            const logContainer = document.getElementById('logContainer');
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${type}`;
-            entry.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong><br>${message}`;
-            
-            logContainer.insertBefore(entry, logContainer.firstChild);
-            
-            // Keep only last 15 entries
-            while (logContainer.children.length > 15) {
-                logContainer.removeChild(logContainer.lastChild);
-            }
-        }
-        
-        function updateConnectionStatus(status, message) {
-            const statusEl = document.getElementById('connectionStatus');
-            statusEl.className = `status ${status}`;
-            statusEl.textContent = message;
-        }
-        
-        function formatTime(seconds) {
-            const mins = Math.floor(seconds / 60);
-            const secs = seconds % 60;
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
-        }
-        
-        // Control functions
-        async function togglePlayback() {
-            if (!accessToken) return;
-            
-            try {
-                const method = document.getElementById('playPauseBtn').textContent.includes('Pause') ? 'PUT' : 'PUT';
-                const endpoint = document.getElementById('playPauseBtn').textContent.includes('Pause') ? 
-                    'https://api.spotify.com/v1/me/player/pause' : 
-                    'https://api.spotify.com/v1/me/player/play';
-                
-                await fetch(endpoint, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    }
-                });
-            } catch (error) {
-                logTransition('error', `Playback control failed: ${error.message}`);
-            }
-        }
-        
-        async function handleSkip() {
-            if (!accessToken) return;
-            
-            lastSkipTime = Date.now();
-            
-            try {
-                await fetch('https://api.spotify.com/v1/me/player/next', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    }
-                });
-                
-                logTransition('info', '⏭️ Skip detected - analyzing for seamless transition...');
-            } catch (error) {
-                logTransition('error', `Skip failed: ${error.message}`);
-            }
-        }
-        
-        async function previousTrack() {
-            if (!accessToken) return;
-            
-            try {
-                await fetch('https://api.spotify.com/v1/me/player/previous', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    }
-                });
-            } catch (error) {
-                logTransition('error', `Previous track failed: ${error.message}`);
-            }
-        }
-        
-        // Legacy login function (probably won't work)
-        function loginToSpotify() {
-            alert('Direct login is currently not supported due to Spotify\'s security requirements. Please use the token method above.');
-        }
-    </script>
-</body>
-</html>
+                3: [3
