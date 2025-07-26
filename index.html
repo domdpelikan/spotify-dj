@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Beat-Synchronized Spotify AI DJ</title>
+  <title>Smart Beat Skip - Spotify AI</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
@@ -13,42 +13,41 @@
 
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #1db954, #191414, #8a2be2);
+      background: linear-gradient(135deg, #1db954, #191414);
       color: white;
       min-height: 100vh;
-      padding: 10px;
-      overflow-x: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
     }
 
     .container {
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-
-    .header {
+      max-width: 800px;
       text-align: center;
-      margin-bottom: 20px;
     }
 
     .header h1 {
-      font-size: 2.5em;
-      margin-bottom: 5px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-      background: linear-gradient(45deg, #1db954, #8a2be2, #ff6b35);
+      font-size: 3em;
+      margin-bottom: 10px;
+      background: linear-gradient(45deg, #1db954, #ff6b35);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
 
+    .subtitle {
+      font-size: 1.2em;
+      opacity: 0.8;
+      margin-bottom: 30px;
+    }
+
     .status {
-      padding: 10px;
-      border-radius: 8px;
-      margin: 15px 0;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px 0;
       font-weight: bold;
-      text-align: center;
-      font-size: 0.9em;
-      position: relative;
-      transition: all 0.3s ease;
+      font-size: 1.1em;
     }
 
     .status.connected {
@@ -61,52 +60,64 @@
       border: 2px solid #ff4444;
     }
 
-    .status.loading {
+    .status.working {
       background: rgba(255, 165, 0, 0.2);
       border: 2px solid #ffa500;
     }
 
-    .status .spinner {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      border: 2px solid transparent;
-      border-top: 2px solid currentColor;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-right: 8px;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
     .login-section {
-      text-align: center;
-      padding: 30px;
+      padding: 40px;
       background: rgba(255, 255, 255, 0.1);
       border-radius: 15px;
       backdrop-filter: blur(10px);
     }
 
+    .main-interface {
+      display: none;
+      padding: 40px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      backdrop-filter: blur(10px);
+    }
+
+    .current-track {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+
+    .track-name {
+      font-size: 1.5em;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .track-artist {
+      font-size: 1.1em;
+      opacity: 0.8;
+      margin-bottom: 10px;
+    }
+
+    .track-progress {
+      font-size: 0.9em;
+      opacity: 0.7;
+    }
+
+    .controls {
+      margin: 30px 0;
+    }
+
     .btn {
-      padding: 12px 24px;
-      font-size: 1em;
+      padding: 15px 30px;
+      font-size: 1.2em;
       border: none;
-      border-radius: 20px;
+      border-radius: 25px;
       cursor: pointer;
       transition: all 0.3s ease;
       font-weight: bold;
-      margin: 5px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none !important;
+      margin: 10px;
+      min-width: 150px;
     }
 
     .btn-primary {
@@ -116,7 +127,7 @@
 
     .btn-primary:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(29, 185, 84, 0.4);
+      box-shadow: 0 8px 25px rgba(29, 185, 84, 0.4);
     }
 
     .btn-secondary {
@@ -129,719 +140,109 @@
       background: rgba(255, 255, 255, 0.25);
     }
 
-    .btn-danger {
-      background: linear-gradient(45deg, #ff4444, #ff6666);
-      color: white;
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
     }
 
-    .btn-danger:hover:not(:disabled) {
-      background: linear-gradient(45deg, #ff6666, #ff8888);
-    }
-
-    .dj-interface {
-      display: none;
-      grid-template-columns: 1fr 2fr 1fr;
-      gap: 15px;
-      margin-top: 20px;
-      min-height: 70vh;
-    }
-
-    .deck {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 15px;
-      padding: 15px;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      position: relative;
-      transition: all 0.3s ease;
-    }
-
-    .deck.active {
-      border-color: #1db954;
-      box-shadow: 0 0 20px rgba(29, 185, 84, 0.3);
-    }
-
-    .deck h3 {
-      text-align: center;
-      margin-bottom: 15px;
-      color: #1db954;
-      font-size: 1.1em;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .deck-status {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #666;
-    }
-
-    .deck-status.playing {
-      background: #1db954;
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    .deck-status.loading {
-      background: #ffa500;
-      animation: spin 1s linear infinite;
-    }
-
-    .track-info {
-      margin-bottom: 15px;
-      min-height: 50px;
-    }
-
-    .track-name {
-      font-weight: bold;
-      font-size: 1em;
-      margin-bottom: 5px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .track-artist {
-      font-size: 0.9em;
-      opacity: 0.8;
-      margin-bottom: 10px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .track-duration {
-      font-size: 0.8em;
-      opacity: 0.6;
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-
-    .waveform-container {
-      height: 80px;
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 8px;
-      margin: 10px 0;
-      position: relative;
-      overflow: hidden;
-      cursor: pointer;
-    }
-
-    .waveform {
-      height: 100%;
-      width: 100%;
-      background: linear-gradient(90deg, 
-        transparent 0%, 
-        rgba(29, 185, 84, 0.3) 25%, 
-        rgba(29, 185, 84, 0.8) 50%, 
-        rgba(29, 185, 84, 0.3) 75%, 
-        transparent 100%);
-      position: relative;
-    }
-
-    .playhead {
-      position: absolute;
-      top: 0;
-      left: 0%;
-      width: 2px;
-      height: 100%;
-      background: #fff;
-      box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
-      transition: left 0.1s linear;
-      z-index: 3;
-    }
-
-    .beat-markers {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .beat-marker {
-      position: absolute;
-      top: 0;
-      width: 1px;
-      height: 100%;
-      background: rgba(138, 43, 226, 0.6);
-    }
-
-    .beat-marker.downbeat {
-      width: 2px;
-      background: rgba(255, 107, 53, 0.8);
-      box-shadow: 0 0 5px rgba(255, 107, 53, 0.5);
-    }
-
-    .beat-marker.sync-point {
-      width: 3px;
-      background: rgba(255, 255, 0, 0.9);
-      box-shadow: 0 0 8px rgba(255, 255, 0, 0.7);
-    }
-
-    .beat-marker.current-beat {
-      width: 2px;
-      background: rgba(255, 255, 255, 0.9);
-      box-shadow: 0 0 5px rgba(255, 255, 255, 0.7);
-    }
-
-    .waveform-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(90deg, 
-        rgba(29, 185, 84, 0.1) 0%,
-        rgba(29, 185, 84, 0.3) 50%,
-        rgba(29, 185, 84, 0.1) 100%);
-      z-index: 2;
-    }
-
-    .beat-sync-panel {
-      background: linear-gradient(135deg, rgba(255, 255, 0, 0.1), rgba(255, 107, 53, 0.1));
-      border-radius: 10px;
-      padding: 15px;
-      border: 2px solid rgba(255, 255, 0, 0.3);
-      margin: 10px 0;
-    }
-
-    .beat-sync-status {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-      font-size: 0.9em;
-    }
-
-    .sync-confidence {
-      font-weight: bold;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 0.8em;
-    }
-
-    .sync-confidence.high {
-      background: rgba(29, 185, 84, 0.3);
-      color: #1db954;
-    }
-
-    .sync-confidence.medium {
-      background: rgba(255, 165, 0, 0.3);
-      color: #ffa500;
-    }
-
-    .sync-confidence.low {
-      background: rgba(255, 68, 68, 0.3);
-      color: #ff4444;
-    }
-
-    .beat-grid {
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: 5px;
-      margin: 10px 0;
-    }
-
-    .beat-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #1db954;
-      opacity: 0.3;
-      transition: all 0.2s ease;
-      cursor: pointer;
-      position: relative;
-    }
-
-    .beat-dot:hover {
-      opacity: 0.7;
-      transform: scale(1.2);
-    }
-
-    .beat-dot.active {
-      opacity: 1;
-      transform: scale(1.5);
-      box-shadow: 0 0 10px #1db954;
-    }
-
-    .beat-dot.sync-target {
-      background: #ffff00;
-      opacity: 1;
-      transform: scale(1.3);
-      box-shadow: 0 0 10px #ffff00;
-    }
-
-    .beat-dot.downbeat {
-      background: #ff6b35;
-    }
-
-    .beat-dot.downbeat.active {
-      box-shadow: 0 0 10px #ff6b35;
-    }
-
-    .center-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-    }
-
-    .mode-selector {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin: 15px 0;
-      flex-wrap: wrap;
-    }
-
-    .mode-btn {
-      padding: 8px 16px;
-      border-radius: 20px;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      font-size: 0.9em;
-      user-select: none;
-    }
-
-    .mode-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
-      transform: translateY(-1px);
-    }
-
-    .mode-btn.active {
-      background: #1db954;
-      border-color: #1db954;
-      transform: scale(1.05);
-    }
-
-    .ai-brain {
-      background: linear-gradient(135deg, rgba(138, 43, 226, 0.2), rgba(29, 185, 84, 0.2));
-      border-radius: 15px;
-      padding: 15px;
+    .ai-status {
+      background: rgba(138, 43, 226, 0.2);
       border: 2px solid rgba(138, 43, 226, 0.5);
-      text-align: center;
-      position: relative;
-    }
-
-    .learning-indicator {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #8a2be2;
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    .ai-score {
-      font-size: 2em;
-      font-weight: bold;
-      margin: 10px 0;
-      transition: color 0.3s ease;
-    }
-
-    .ai-recommendations {
-      font-size: 0.85em;
-      line-height: 1.4;
-      max-height: 100px;
-      overflow-y: auto;
-      text-align: left;
-    }
-
-    .recommendation-item {
-      margin: 5px 0;
-      padding: 5px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 5px;
-      border-left: 3px solid transparent;
-    }
-
-    .recommendation-item.high {
-      border-left-color: #1db954;
-    }
-
-    .recommendation-item.medium {
-      border-left-color: #ffa500;
-    }
-
-    .recommendation-item.low {
-      border-left-color: #ff4444;
-    }
-
-    .mixer-section {
-      background: rgba(0, 0, 0, 0.4);
-      border-radius: 15px;
+      border-radius: 10px;
       padding: 20px;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      margin: 20px 0;
     }
 
-    .crossfader-container {
+    .ai-learning {
+      font-size: 1.1em;
+      margin-bottom: 10px;
+    }
+
+    .beat-info {
+      display: flex;
+      justify-content: space-around;
       margin: 20px 0;
       text-align: center;
     }
 
-    .crossfader {
-      width: 100%;
-      height: 8px;
-      border-radius: 4px;
-      background: linear-gradient(90deg, #1db954 0%, rgba(255,255,255,0.3) 50%, #8a2be2 100%);
-      outline: none;
-      cursor: pointer;
-      transition: all 0.2s ease;
+    .beat-item {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 15px;
+      border-radius: 8px;
+      min-width: 120px;
     }
 
-    .crossfader:hover {
-      height: 10px;
+    .beat-number {
+      font-size: 2em;
+      font-weight: bold;
+      color: #1db954;
     }
 
-    .crossfader::-webkit-slider-thumb {
-      appearance: none;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: white;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .crossfader::-webkit-slider-thumb:hover {
-      transform: scale(1.1);
-    }
-
-    .controls-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin: 15px 0;
-    }
-
-    .control-group {
-      margin: 10px 0;
-    }
-
-    .control-label {
-      font-size: 0.8em;
-      margin-bottom: 5px;
-      display: block;
+    .beat-label {
+      font-size: 0.9em;
       opacity: 0.8;
     }
 
-    .volume-slider {
-      width: 100%;
-      height: 4px;
-      border-radius: 2px;
-      background: rgba(255, 255, 255, 0.2);
-      outline: none;
-      cursor: pointer;
-    }
-
-    .volume-slider::-webkit-slider-thumb {
-      appearance: none;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: #1db954;
-      cursor: pointer;
-    }
-
-    .transition-timeline {
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 8px;
-      padding: 10px;
-      margin: 10px 0;
-    }
-
-    .timeline-bar {
-      height: 6px;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 3px;
-      position: relative;
-      margin: 5px 0;
-    }
-
-    .timeline-progress {
-      height: 100%;
-      background: linear-gradient(90deg, #1db954, #8a2be2);
-      border-radius: 3px;
-      width: 0%;
-      transition: width 0.1s linear;
-    }
-
-    .timeline-marker {
-      position: absolute;
-      top: -2px;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #ff6b35;
-      transform: translateX(-50%);
-      cursor: pointer;
-    }
-
-    .performance-stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin: 15px 0;
-      font-size: 0.8em;
-    }
-
-    .stat-item {
-      text-align: center;
-      padding: 8px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
-      transition: all 0.3s ease;
-    }
-
-    .stat-item:hover {
-      background: rgba(255, 255, 255, 0.15);
-    }
-
-    .stat-value {
-      font-size: 1.2em;
-      font-weight: bold;
-      margin-top: 3px;
-    }
-
-    .queue-preview {
+    .instructions {
       background: rgba(255, 255, 255, 0.05);
+      padding: 20px;
       border-radius: 10px;
+      margin: 20px 0;
+      font-size: 0.95em;
+      line-height: 1.5;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid transparent;
+      border-top: 2px solid currentColor;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .success-indicator {
+      color: #1db954;
+      font-weight: bold;
+    }
+
+    .error-indicator {
+      color: #ff4444;
+      font-weight: bold;
+    }
+
+    .external-skip-indicator {
+      background: rgba(255, 165, 0, 0.2);
+      border: 2px solid #ffa500;
       padding: 10px;
-      max-height: 200px;
-      overflow-y: auto;
-    }
-
-    .queue-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px;
-      margin: 3px 0;
-      border-radius: 5px;
-      background: rgba(255, 255, 255, 0.05);
-      font-size: 0.8em;
-      transition: all 0.3s ease;
-      cursor: pointer;
-    }
-
-    .queue-item:hover {
-      background: rgba(255, 255, 255, 0.1);
-      transform: translateX(5px);
-    }
-
-    .queue-item.optimal {
-      border-left: 3px solid #1db954;
-    }
-
-    .queue-item.good {
-      border-left: 3px solid #ffaa44;
-    }
-
-    .queue-item.challenging {
-      border-left: 3px solid #ff4444;
-    }
-
-    .queue-item-info {
-      flex: 1;
-      overflow: hidden;
-    }
-
-    .queue-item-name {
-      font-weight: bold;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .queue-item-artist {
-      font-size: 0.9em;
-      opacity: 0.7;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .queue-item-score {
-      margin-left: 10px;
-      font-weight: bold;
-      font-size: 0.9em;
-    }
-
-    .error-message {
-      background: rgba(255, 68, 68, 0.2);
-      border: 1px solid #ff4444;
       border-radius: 8px;
-      padding: 10px;
       margin: 10px 0;
-      color: #ff8888;
       font-size: 0.9em;
       display: none;
     }
 
-    .loading-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      opacity: 0;
-      visibility: hidden;
-      transition: all 0.3s ease;
-    }
-
-    .loading-overlay.active {
-      opacity: 1;
-      visibility: visible;
-    }
-
-    .loading-content {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 30px;
-      border-radius: 15px;
-      text-align: center;
-      backdrop-filter: blur(10px);
-    }
-
-    .tooltip {
-      position: relative;
-      cursor: help;
-    }
-
-    .tooltip::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.9);
-      color: white;
-      padding: 5px 10px;
-      border-radius: 5px;
-      font-size: 0.8em;
-      white-space: nowrap;
-      opacity: 0;
-      visibility: hidden;
-      transition: all 0.3s ease;
-      z-index: 1000;
-    }
-
-    .tooltip:hover::after {
-      opacity: 1;
-      visibility: visible;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 0.3; transform: scale(1); }
-      50% { opacity: 1; transform: scale(1.2); }
-    }
-
-    @keyframes glow {
-      0%, 100% { box-shadow: 0 0 5px rgba(29, 185, 84, 0.5); }
-      50% { box-shadow: 0 0 20px rgba(29, 185, 84, 1); }
-    }
-
-    .glow-effect {
-      animation: glow 1s ease-in-out infinite;
-    }
-
-    @media (max-width: 1024px) {
-      .dj-interface {
-        grid-template-columns: 1fr;
-        gap: 15px;
-      }
-      
-      .header h1 {
-        font-size: 2em;
-      }
-      
-      .controls-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .beat-grid {
-        grid-template-columns: repeat(4, 1fr);
-      }
-    }
-
     @media (max-width: 768px) {
       .header h1 {
-        font-size: 1.8em;
+        font-size: 2.5em;
       }
       
       .btn {
-        padding: 10px 20px;
-        font-size: 0.9em;
-      }
-      
-      .mode-selector {
-        justify-content: flex-start;
-        overflow-x: auto;
-        padding-bottom: 5px;
+        padding: 12px 25px;
+        font-size: 1.1em;
+        min-width: 130px;
       }
 
-      .mode-btn {
-        flex-shrink: 0;
-      }
-
-      .performance-stats {
-        grid-template-columns: 1fr;
-      }
-
-      .beat-sync-status {
+      .beat-info {
         flex-direction: column;
-        gap: 5px;
-        text-align: center;
-      }
-    }
-
-    /* Accessibility improvements */
-    @media (prefers-reduced-motion: reduce) {
-      * {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-      }
-    }
-
-    /* Focus styles for keyboard navigation */
-    .btn:focus,
-    .mode-btn:focus,
-    .crossfader:focus,
-    .volume-slider:focus {
-      outline: 2px solid #1db954;
-      outline-offset: 2px;
-    }
-
-    /* High contrast mode support */
-    @media (prefers-contrast: high) {
-      .deck {
-        border-width: 3px;
-      }
-      
-      .beat-marker {
-        opacity: 1;
-      }
-      
-      .status {
-        border-width: 3px;
+        gap: 10px;
       }
     }
   </style>
@@ -849,324 +250,108 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>🎵 Beat-Synchronized Spotify AI DJ</h1>
-      <p>🚀 Intelligent Beat Matching • Seamless Transitions • AI-Powered Sync</p>
+      <h1>🎵 Smart Beat Skip</h1>
+      <p class="subtitle">AI-powered beat synchronization for Spotify</p>
     </div>
 
     <div id="status" class="status disconnected">Not Connected</div>
-    <div id="error-message" class="error-message"></div>
 
     <div id="login-section" class="login-section">
-      <p style="margin-bottom: 20px;">
-        🎧 Professional Beat-Synchronized DJ with Advanced Audio Analysis<br>
-        • <strong>Smart Skip:</strong> Syncs to equivalent beat positions, not song beginnings<br>
-        • <strong>Real-time Analysis:</strong> Advanced beat detection and timing prediction<br>
-        • <strong>AI Learning:</strong> Adapts to your mixing style and preferences<br>
-        • <strong>Visual Feedback:</strong> See beats, sync points, and confidence scores
+      <h2 style="margin-bottom: 20px;">🎧 Intelligent Music Skipping</h2>
+      <p style="margin-bottom: 25px; line-height: 1.5;">
+        Skip songs intelligently! When you press skip (here or in Spotify), 
+        the AI automatically finds the perfect beat in the next song to match 
+        where you left off. No more jarring transitions to silence.
       </p>
-      <button onclick="login()" class="btn btn-primary">🔐 Login with Spotify</button>
-      <p style="margin-top: 15px; font-size: 0.8em; opacity: 0.7;">
-        Requires active Spotify Premium subscription
+      <button onclick="login()" class="btn btn-primary">🔐 Connect to Spotify</button>
+      <p style="margin-top: 15px; font-size: 0.9em; opacity: 0.7;">
+        Requires Spotify Premium
       </p>
     </div>
 
-    <div id="dj-interface" class="dj-interface">
-      <!-- Left Deck (Current Track) -->
-      <div class="deck" id="deck-a">
-        <h3>
-          🎧 CURRENT TRACK
-          <span class="deck-status" id="deck-status-a"></span>
-        </h3>
-        
-        <div class="track-info">
-          <div class="track-name" id="track-name-a">No Track Loaded</div>
-          <div class="track-artist" id="track-artist-a"></div>
-          <div class="track-duration">
-            <span id="current-time-a">0:00</span>
-            <span id="total-time-a">0:00</span>
-          </div>
+    <div id="main-interface" class="main-interface">
+      <div class="current-track">
+        <div class="track-name" id="track-name">No Track Playing</div>
+        <div class="track-artist" id="track-artist">Start music in Spotify</div>
+        <div class="track-progress" id="track-progress">0:00 / 0:00</div>
+      </div>
+
+      <div id="external-skip-indicator" class="external-skip-indicator">
+        🎯 Detected external skip - applying smart beat sync...
+      </div>
+
+      <div class="beat-info">
+        <div class="beat-item">
+          <div class="beat-number" id="current-beat">--</div>
+          <div class="beat-label">Current Beat</div>
         </div>
-        
-        <div class="waveform-container" onclick="seekToPosition(event, 'a')">
-          <div class="waveform" id="waveform-a">
-            <div class="waveform-overlay"></div>
-            <div class="playhead" id="playhead-a"></div>
-            <div class="beat-markers" id="beat-markers-a"></div>
-          </div>
+        <div class="beat-item">
+          <div class="beat-number" id="sync-confidence">--</div>
+          <div class="beat-label">Sync Quality</div>
         </div>
-        
-        <div class="beat-sync-panel">
-          <div class="beat-sync-status">
-            <span>Current Beat: <strong id="current-beat-a">0</strong></span>
-            <span class="sync-confidence" id="sync-confidence-a-badge">--</span>
-          </div>
-          <div class="beat-grid" id="beat-grid-a">
-            <div class="beat-dot" data-tooltip="Beat 1"></div>
-            <div class="beat-dot" data-tooltip="Beat 2"></div>
-            <div class="beat-dot" data-tooltip="Beat 3"></div>
-            <div class="beat-dot" data-tooltip="Beat 4"></div>
-            <div class="beat-dot downbeat" data-tooltip="Downbeat 1"></div>
-            <div class="beat-dot" data-tooltip="Beat 6"></div>
-            <div class="beat-dot" data-tooltip="Beat 7"></div>
-            <div class="beat-dot" data-tooltip="Beat 8"></div>
-          </div>
-        </div>
-        
-        <div class="audio-features" id="features-a">
-          <div class="feature-bar">
-            <span class="feature-label">Energy</span>
-            <div class="feature-value"><div class="feature-fill energy" style="width:0%"></div></div>
-            <span id="energy-a">0%</span>
-          </div>
-          <div class="feature-bar">
-            <span class="feature-label">Mood</span>
-            <div class="feature-value"><div class="feature-fill valence" style="width:0%"></div></div>
-            <span id="valence-a">0%</span>
-          </div>
-          <div class="feature-bar">
-            <span class="feature-label">Dance</span>
-            <div class="feature-value"><div class="feature-fill danceability" style="width:0%"></div></div>
-            <span id="dance-a">0%</span>
-          </div>
-          <div style="margin-top:8px; font-size:0.75em;">
-            <div>🎼 <span id="key-a">-</span> | 🥁 <span id="tempo-a">- BPM</span></div>
-            <div>🎤 Speech: <span id="speech-a">0%</span> | 🎸 Acoustic: <span id="acoustic-a">0%</span></div>
-          </div>
+        <div class="beat-item">
+          <div class="beat-number" id="skip-count">0</div>
+          <div class="beat-label">Smart Skips</div>
         </div>
       </div>
 
-      <!-- Center Control Panel -->
-      <div class="center-panel">
-        <!-- DJ Mode Selector -->
-        <div class="mode-selector">
-          <div class="mode-btn active" onclick="setDJMode('party')" data-tooltip="High energy, downbeat matching">🎉 Party</div>
-          <div class="mode-btn" onclick="setDJMode('chill')" data-tooltip="Smooth transitions, mood matching">😎 Chill</div>
-          <div class="mode-btn" onclick="setDJMode('dark')" data-tooltip="Key harmony, dramatic builds">😈 Dark</div>
-          <div class="mode-btn" onclick="setDJMode('workout')" data-tooltip="Energy maintenance, tempo matching">💪 Workout</div>
-          <div class="mode-btn" onclick="setDJMode('focus')" data-tooltip="Minimal disruption, smooth flow">🧠 Focus</div>
-        </div>
-
-        <!-- AI Brain Section -->
-        <div class="ai-brain">
-          <div class="learning-indicator"></div>
-          <h4>🤖 Beat Sync Brain</h4>
-          <div class="ai-score" id="ai-score">--</div>
-          <div class="ai-recommendations" id="ai-recommendations">
-            <div class="recommendation-item">Analyzing beat patterns for optimal sync points...</div>
-          </div>
-        </div>
-
-        <!-- Mixer Controls -->
-        <div class="mixer-section">
-          <div class="crossfader-container">
-            <label>🎚️ Crossfader</label>
-            <input type="range" id="crossfader" class="crossfader" min="0" max="100" value="50" oninput="updateCrossfader()">
-            <div style="display:flex; justify-content:space-between; font-size:0.8em; margin-top:5px;">
-              <span>CURRENT</span><span>MIX</span><span>NEXT</span>
-            </div>
-          </div>
-
-          <div class="controls-grid">
-            <button onclick="skipToPrevious()" class="btn btn-secondary" data-tooltip="Previous track">⏮️</button>
-            <button onclick="togglePlayPause()" class="btn btn-primary" id="play-btn" data-tooltip="Play/Pause">▶️</button>
-            <button onclick="beatSyncSkip()" class="btn btn-primary" id="beat-skip-btn" data-tooltip="Smart beat-synchronized skip">🎯 Beat Skip</button>
-            <button onclick="autoMix()" class="btn btn-secondary" data-tooltip="Enable auto-mixing mode">🤖 Auto Mix</button>
-          </div>
-
-          <div class="transition-timeline">
-            <div style="font-size:0.8em; margin-bottom:5px;">Beat Sync Timeline</div>
-            <div class="timeline-bar">
-              <div class="timeline-progress" id="transition-progress"></div>
-              <div class="timeline-marker" id="transition-marker" style="left:70%"></div>
-            </div>
-            <div style="font-size:0.7em; display:flex; justify-content:space-between; margin-top:3px;">
-              <span>Current Beat</span><span id="transition-status">Ready</span><span>Sync Point</span>
-            </div>
-          </div>
-
-          <div style="display:flex; gap:10px; margin:10px 0;">
-            <div class="control-group" style="flex:1;">
-              <label class="control-label">🔊 Current Volume</label>
-              <input type="range" id="volume-a" class="volume-slider" min="0" max="100" value="50" oninput="updateVolume('A')">
-            </div>
-            <div class="control-group" style="flex:1;">
-              <label class="control-label">🔊 Next Volume</label>
-              <input type="range" id="volume-b" class="volume-slider" min="0" max="100" value="50" oninput="updateVolume('B')">
-            </div>
-          </div>
-        </div>
-
-        <!-- Performance Stats -->
-        <div class="performance-stats">
-          <div class="stat-item" data-tooltip="Accuracy of beat synchronization">
-            <div>🎯 Sync Accuracy</div>
-            <div class="stat-value" id="sync-accuracy">98%</div>
-          </div>
-          <div class="stat-item" data-tooltip="Number of successful beat transitions">
-            <div>⚡ Beat Transitions</div>
-            <div class="stat-value" id="transition-count">0</div>
-          </div>
-          <div class="stat-item" data-tooltip="AI learning system status">
-            <div>🧠 AI Learning</div>
-            <div class="stat-value" id="learning-progress">Active</div>
-          </div>
-        </div>
-
-        <!-- Intelligent Queue -->
-        <div class="queue-preview">
-          <h4 style="margin-bottom:10px; font-size:0.9em;">🎼 Beat-Analyzed Queue</h4>
-          <div id="queue-list">
-            <div class="queue-item">
-              <div class="queue-item-info">
-                <div class="queue-item-name">Loading queue analysis...</div>
-                <div class="queue-item-artist">Please wait</div>
-              </div>
-              <div class="queue-item-score">--</div>
-            </div>
-          </div>
-        </div>
+      <div class="controls">
+        <button onclick="smartSkip()" class="btn btn-primary" id="skip-btn">
+          🎯 Smart Skip
+        </button>
+        <button onclick="togglePlayPause()" class="btn btn-secondary" id="play-btn">
+          ▶️ Play
+        </button>
       </div>
 
-      <!-- Right Deck (Next Track) -->
-      <div class="deck" id="deck-b">
-        <h3>
-          🎧 NEXT TRACK
-          <span class="deck-status" id="deck-status-b"></span>
-        </h3>
-        
-        <div class="track-info">
-          <div class="track-name" id="track-name-b">Next Track Loading...</div>
-          <div class="track-artist" id="track-artist-b"></div>
-          <div class="track-duration">
-            <span id="current-time-b">0:00</span>
-            <span id="total-time-b">0:00</span>
-          </div>
-        </div>
-        
-        <div class="waveform-container" onclick="seekToPosition(event, 'b')">
-          <div class="waveform" id="waveform-b">
-            <div class="waveform-overlay"></div>
-            <div class="playhead" id="playhead-b"></div>
-            <div class="beat-markers" id="beat-markers-b"></div>
-          </div>
-        </div>
-        
-        <div class="beat-sync-panel">
-          <div class="beat-sync-status">
-            <span>Target Beat: <strong id="target-beat-b">0</strong></span>
-            <span class="sync-confidence" id="sync-confidence-b-badge">--</span>
-          </div>
-          <div class="beat-grid" id="beat-grid-b">
-            <div class="beat-dot" data-tooltip="Target Beat 1"></div>
-            <div class="beat-dot" data-tooltip="Target Beat 2"></div>
-            <div class="beat-dot" data-tooltip="Target Beat 3"></div>
-            <div class="beat-dot sync-target" data-tooltip="Sync Target"></div>
-            <div class="beat-dot downbeat" data-tooltip="Target Downbeat"></div>
-            <div class="beat-dot" data-tooltip="Target Beat 6"></div>
-            <div class="beat-dot" data-tooltip="Target Beat 7"></div>
-            <div class="beat-dot" data-tooltip="Target Beat 8"></div>
-          </div>
-        </div>
-        
-        <div class="audio-features" id="features-b">
-          <div class="feature-bar">
-            <span class="feature-label">Energy</span>
-            <div class="feature-value"><div class="feature-fill energy" style="width:0%"></div></div>
-            <span id="energy-b">0%</span>
-          </div>
-          <div class="feature-bar">
-            <span class="feature-label">Mood</span>
-            <div class="feature-value"><div class="feature-fill valence" style="width:0%"></div></div>
-            <span id="valence-b">0%</span>
-          </div>
-          <div class="feature-bar">
-            <span class="feature-label">Dance</span>
-            <div class="feature-value"><div class="feature-fill danceability" style="width:0%"></div></div>
-            <span id="dance-b">0%</span>
-          </div>
-          <div style="margin-top:8px; font-size:0.75em;">
-            <div>🎼 <span id="key-b">-</span> | 🥁 <span id="tempo-b">- BPM</span></div>
-            <div>🎤 Speech: <span id="speech-b">0%</span> | 🎸 Acoustic: <span id="acoustic-b">0%</span></div>
-          </div>
-        </div>
+      <div class="ai-status">
+        <div class="ai-learning" id="ai-status">🤖 AI Learning: Analyzing beat patterns...</div>
+        <div id="ai-message">The AI is training to understand your music and find perfect skip points.</div>
       </div>
-    </div>
 
-    <!-- Logout button -->
-    <div style="text-align: center; margin-top: 20px;">
-      <button onclick="logout()" class="btn btn-secondary" id="logout-btn" style="display:none;">🚪 Logout</button>
-    </div>
-
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" class="loading-overlay">
-      <div class="loading-content">
-        <div class="spinner"></div>
-        <h3 id="loading-text">Processing...</h3>
-        <p id="loading-details">Please wait while we analyze the audio data</p>
+      <div class="instructions">
+        <strong>How it works:</strong><br>
+        • Play music in Spotify normally<br>
+        • Press "Smart Skip" here OR use Spotify's skip button<br>
+        • AI automatically jumps to the matching beat in the next song<br>
+        • No more awkward silences or jarring transitions!
       </div>
+
+      <button onclick="logout()" class="btn btn-secondary" style="margin-top: 20px;">
+        🚪 Disconnect
+      </button>
     </div>
   </div>
 
   <script>
-    // ENHANCED CONFIGURATION
+    // Configuration
     const CLIENT_ID = 'e60ede83721246198bf4fe8a9bee8ca8';
     const REDIRECT_URI = window.location.origin + window.location.pathname;
     const SCOPES = [
       'user-read-playback-state',
       'user-modify-playback-state',
-      'user-read-currently-playing',
-      'streaming',
-      'user-read-private',
-      'user-library-read',
-      'playlist-read-private',
-      'playlist-read-collaborative',
-      'user-top-read',
-      'user-read-recently-played'
+      'user-read-currently-playing'
     ];
 
-    // ENHANCED GLOBAL STATE WITH BEAT TRACKING
+    // Global state
     let accessToken = null;
-    let audioContext = null;
-    let deckA = { 
-      track: null, 
-      features: null, 
-      analysis: null, 
-      gainNode: null, 
-      bufferSource: null, 
-      isPlaying: false,
-      currentBeat: 0,
-      beatTiming: [],
-      syncPoints: []
-    };
-    let deckB = { 
-      track: null, 
-      features: null, 
-      analysis: null, 
-      gainNode: null, 
-      bufferSource: null, 
-      isPlaying: false,
-      targetBeat: 0,
-      beatTiming: [],
-      syncPoints: []
-    };
-    let currentDeck = 'A';
-    let playbackState = null;
+    let currentTrack = null;
+    let currentAnalysis = null;
+    let nextTrackAnalysis = null;
+    let currentBeat = 0;
+    let skipCount = 0;
     let updateInterval = null;
-    let beatSyncEngine = null;
-    let djMode = 'party';
-    let transitionInProgress = false;
-    let performanceStats = {
-      syncAccuracy: 98,
-      transitionCount: 0,
-      learningActive: true
-    };
+    let isProcessing = false;
+    let lastTrackId = null;
+    let lastPosition = 0;
+    let externalSkipPending = false;
+    let manualSkipInProgress = false;
 
-    // BEAT SYNCHRONIZATION ENGINE
-    class BeatSyncEngine {
+    // Simple Beat Sync AI
+    class SimpleBeatSync {
       constructor() {
-        this.beatTolerance = 50;
         this.analysisCache = new Map();
-        this.syncHistory = [];
+        this.successHistory = [];
       }
 
       async getBeatAnalysis(trackId) {
@@ -1175,340 +360,94 @@
         }
 
         try {
-          showLoading('Analyzing beat patterns...', 'Getting detailed audio analysis from Spotify');
           const analysis = await spotifyRequest(`/audio-analysis/${trackId}`);
           if (analysis && analysis.beats) {
-            const processedAnalysis = this.processBeatData(analysis);
-            this.analysisCache.set(trackId, processedAnalysis);
-            hideLoading();
-            return processedAnalysis;
+            const processed = {
+              beats: analysis.beats.map((beat, i) => ({
+                start: beat.start * 1000, // Convert to ms
+                confidence: beat.confidence,
+                index: i
+              })),
+              duration: analysis.track.duration * 1000,
+              tempo: analysis.track.tempo
+            };
+            this.analysisCache.set(trackId, processed);
+            return processed;
           }
         } catch (error) {
-          console.error('Failed to get beat analysis:', error);
-          hideLoading();
-          showError('Beat analysis failed. Using fallback timing.');
+          console.error('Beat analysis failed:', error);
         }
-
-        hideLoading();
         return null;
       }
 
-      processBeatData(analysis) {
-        const beats = analysis.beats || [];
-        const sections = analysis.sections || [];
-        const bars = analysis.bars || [];
+      getCurrentBeat(analysis, positionMs) {
+        if (!analysis || !analysis.beats) return 0;
 
-        return {
-          beats: beats.map((beat, index) => ({
-            start: beat.start * 1000,
-            duration: beat.duration * 1000,
-            confidence: beat.confidence,
-            index: index,
-            isDownbeat: this.isDownbeat(beat, bars, index)
-          })),
-          bars: bars.map(bar => ({
-            start: bar.start * 1000,
-            duration: bar.duration * 1000,
-            confidence: bar.confidence
-          })),
-          sections: sections.map(section => ({
-            start: section.start * 1000,
-            duration: section.duration * 1000,
-            tempo: section.tempo,
-            key: section.key,
-            mode: section.mode,
-            time_signature: section.time_signature
-          })),
-          totalDuration: analysis.track?.duration * 1000 || 0,
-          averageTempo: this.calculateAverageTempo(beats)
-        };
-      }
-
-      isDownbeat(beat, bars, beatIndex) {
-        return bars.some(bar => Math.abs((beat.start * 1000) - (bar.start * 1000)) < 50);
-      }
-
-      calculateAverageTempo(beats) {
-        if (beats.length < 2) return 120;
-        
-        const intervals = [];
-        for (let i = 1; i < beats.length; i++) {
-          intervals.push(beats[i].start - beats[i-1].start);
-        }
-        
-        const avgInterval = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
-        return 60 / avgInterval;
-      }
-
-      getCurrentBeat(analysis, currentTimeMs) {
-        if (!analysis || !analysis.beats) return { beat: 0, confidence: 0 };
-
-        const beats = analysis.beats;
+        // Find closest beat to current position
         let closestBeat = 0;
         let minDistance = Infinity;
 
-        for (let i = 0; i < beats.length; i++) {
-          const distance = Math.abs(beats[i].start - currentTimeMs);
+        for (let i = 0; i < analysis.beats.length; i++) {
+          const distance = Math.abs(analysis.beats[i].start - positionMs);
           if (distance < minDistance) {
             minDistance = distance;
             closestBeat = i;
           }
         }
-
-        return {
-          beat: closestBeat,
-          confidence: minDistance < this.beatTolerance ? beats[closestBeat].confidence : 0,
-          timeOffset: minDistance,
-          beatData: beats[closestBeat]
-        };
-      }
-
-      findSyncPoint(sourceAnalysis, targetAnalysis, sourceBeat, preferences = {}) {
-        if (!sourceAnalysis || !targetAnalysis || !sourceAnalysis.beats || !targetAnalysis.beats) {
-          console.log('❌ Missing analysis data for sync calculation');
-          return { syncBeat: 0, confidence: 0, seekTime: 0 };
-        }
-
-        const sourceBeatData = sourceAnalysis.beats[sourceBeat];
-        if (!sourceBeatData) {
-          console.log(`❌ Source beat ${sourceBeat} not found`);
-          return { syncBeat: 0, confidence: 0, seekTime: 0 };
-        }
-
-        console.log(`🎯 Finding sync point:
-          - Source track: ${sourceAnalysis.beats.length} beats, tempo ${sourceAnalysis.averageTempo.toFixed(1)} BPM
-          - Target track: ${targetAnalysis.beats.length} beats, tempo ${targetAnalysis.averageTempo.toFixed(1)} BPM
-          - Current beat: ${sourceBeat} (${Math.round((sourceBeat / sourceAnalysis.beats.length) * 100)}% through track)`);
-
-        // 🎵 STRATEGY 1: PROPORTIONAL POSITION MATCHING
-        // Find the equivalent relative position in the target track
-        const sourceProgress = sourceBeat / sourceAnalysis.beats.length;
-        let targetBeat = Math.floor(sourceProgress * targetAnalysis.beats.length);
-        
-        console.log(`📊 Proportional match: ${sourceBeat}/${sourceAnalysis.beats.length} = ${(sourceProgress * 100).toFixed(1)}% → beat ${targetBeat}`);
-
-        // 🎵 STRATEGY 2: DOWNBEAT ALIGNMENT (if enabled)
-        if (preferences.matchDownbeats && sourceBeatData.isDownbeat) {
-          const nearestDownbeat = this.findNearestDownbeat(targetAnalysis, targetBeat);
-          if (nearestDownbeat !== targetBeat) {
-            console.log(`🥁 Downbeat alignment: ${targetBeat} → ${nearestDownbeat}`);
-            targetBeat = nearestDownbeat;
-          }
-        }
-
-        // 🎵 STRATEGY 3: SECTION MATCHING (if enabled)
-        if (preferences.matchSections) {
-          const sectionMatch = this.findSimilarSection(sourceAnalysis, targetAnalysis, sourceBeat, targetBeat);
-          if (sectionMatch !== targetBeat) {
-            console.log(`🎼 Section alignment: ${targetBeat} → ${sectionMatch}`);
-            targetBeat = sectionMatch;
-          }
-        }
-
-        // 🎵 STRATEGY 4: TEMPO COMPENSATION
-        // If tempos are very different, adjust the target beat for better sync
-        const tempoRatio = targetAnalysis.averageTempo / sourceAnalysis.averageTempo;
-        if (Math.abs(tempoRatio - 1) > 0.2) { // More than 20% tempo difference
-          const tempoAdjustedBeat = Math.floor(targetBeat * tempoRatio);
-          console.log(`⏱️ Tempo compensation: ${targetBeat} → ${tempoAdjustedBeat} (ratio: ${tempoRatio.toFixed(2)})`);
-          targetBeat = tempoAdjustedBeat;
-        }
-
-        // 🚫 BOUNDARY CHECK: Ensure target beat is valid
-        targetBeat = Math.max(0, Math.min(targetBeat, targetAnalysis.beats.length - 1));
-
-        const targetBeatData = targetAnalysis.beats[targetBeat];
-        const seekTime = targetBeatData.start;
-
-        // 📊 CONFIDENCE CALCULATION
-        const confidence = this.calculateAdvancedSyncConfidence(
-          sourceBeatData, 
-          targetBeatData, 
-          sourceAnalysis, 
-          targetAnalysis,
-          sourceBeat,
-          targetBeat
-        );
-
-        console.log(`✅ Final sync point:
-          - Target beat: ${targetBeat} at ${formatTime(seekTime)}
-          - Confidence: ${Math.round(confidence)}%
-          - Strategy: ${this.getStrategyName(preferences)}`);
-
-        return {
-          syncBeat: targetBeat,
-          confidence: confidence,
-          seekTime: seekTime,
-          targetBeatData: targetBeatData,
-          strategy: this.getStrategyName(preferences),
-          tempoRatio: tempoRatio || 1,
-          sourceProgress: sourceProgress
-        };
-      }
-
-      calculateAdvancedSyncConfidence(sourceBeat, targetBeat, sourceAnalysis, targetAnalysis, sourceBeatIndex, targetBeatIndex) {
-        let confidence = 50; // Base confidence
-
-        // 🎵 BEAT CONFIDENCE: Higher confidence beats = better sync
-        confidence += (sourceBeat.confidence * 20);
-        confidence += (targetBeat.confidence * 20);
-
-        // 🥁 DOWNBEAT BONUS: Downbeat to downbeat = perfect alignment
-        if (sourceBeat.isDownbeat && targetBeat.isDownbeat) {
-          confidence += 25;
-          console.log('🥁 Downbeat-to-downbeat bonus: +25');
-        }
-
-        // ⏱️ TEMPO SIMILARITY: Similar tempos = smoother transitions
-        const tempoDiff = Math.abs(sourceAnalysis.averageTempo - targetAnalysis.averageTempo);
-        const tempoSimilarity = Math.max(0, 1 - (tempoDiff / 50)); // 50 BPM max penalty
-        confidence += tempoSimilarity * 20;
-        console.log(`⏱️ Tempo similarity: ${tempoSimilarity.toFixed(2)} (+${(tempoSimilarity * 20).toFixed(1)})`);
-
-        // 📍 POSITION PREFERENCE: Avoid very early or very late positions
-        const targetProgress = targetBeatIndex / targetAnalysis.beats.length;
-        if (targetProgress < 0.05) { // Very beginning
-          confidence -= 15;
-          console.log('📍 Early position penalty: -15');
-        } else if (targetProgress > 0.95) { // Very end
-          confidence -= 10;
-          console.log('📍 Late position penalty: -10');
-        } else if (targetProgress > 0.2 && targetProgress < 0.8) { // Sweet spot
-          confidence += 10;
-          console.log('📍 Optimal position bonus: +10');
-        }
-
-        // 🎼 BEAT QUALITY: Penalize low-confidence beats
-        const avgBeatConfidence = (sourceBeat.confidence + targetBeat.confidence) / 2;
-        if (avgBeatConfidence < 0.5) {
-          confidence -= 15;
-          console.log(`🎼 Low beat confidence penalty: -15 (avg: ${avgBeatConfidence.toFixed(2)})`);
-        }
-
-        // 📊 TRACK LENGTH SIMILARITY: Similar length tracks sync better
-        const lengthRatio = Math.min(sourceAnalysis.totalDuration, targetAnalysis.totalDuration) / 
-                           Math.max(sourceAnalysis.totalDuration, targetAnalysis.totalDuration);
-        if (lengthRatio < 0.7) { // Very different lengths
-          confidence -= 5;
-          console.log(`📊 Length difference penalty: -5 (ratio: ${lengthRatio.toFixed(2)})`);
-        }
-
-        const finalConfidence = Math.max(0, Math.min(100, confidence));
-        console.log(`📊 Final confidence: ${finalConfidence.toFixed(1)}%`);
-        
-        return finalConfidence;
-      }
-
-      findNearestDownbeat(analysis, targetBeat) {
-        const beats = analysis.beats;
-        let nearestDownbeat = targetBeat;
-        let minDistance = Infinity;
-
-        // Search within ±12 beats for a downbeat (3 bars in 4/4 time)
-        const searchRange = 12;
-        for (let i = Math.max(0, targetBeat - searchRange); 
-             i < Math.min(beats.length, targetBeat + searchRange); i++) {
-          if (beats[i].isDownbeat) {
-            const distance = Math.abs(i - targetBeat);
-            if (distance < minDistance) {
-              minDistance = distance;
-              nearestDownbeat = i;
-            }
-          }
-        }
-
-        return nearestDownbeat;
-      }
-
-      findSimilarSection(sourceAnalysis, targetAnalysis, sourceBeat, fallbackBeat) {
-        const sourceTime = sourceAnalysis.beats[sourceBeat].start;
-        const sourceSection = sourceAnalysis.sections.find(section => 
-          sourceTime >= section.start && sourceTime < section.start + section.duration
-        );
-
-        if (!sourceSection) {
-          console.log('🎼 No source section found for beat', sourceBeat);
-          return fallbackBeat;
-        }
-
-        // Find the best matching section in target track
-        let bestSection = null;
-        let bestScore = 0;
-
-        for (const section of targetAnalysis.sections) {
-          let score = 0;
-          
-          // Tempo similarity (most important)
-          const tempoDiff = Math.abs(section.tempo - sourceSection.tempo);
-          score += Math.max(0, 50 - tempoDiff); // 50 points max for tempo
-          
-          // Key similarity
-          if (section.key === sourceSection.key) score += 30;
-          
-          // Mode similarity (major/minor)
-          if (section.mode === sourceSection.mode) score += 20;
-          
-          if (score > bestScore) {
-            bestScore = score;
-            bestSection = section;
-          }
-        }
-
-        if (!bestSection || bestScore < 30) {
-          console.log(`🎼 No good section match found (best score: ${bestScore})`);
-          return fallbackBeat;
-        }
-
-        // Find beat closest to the start of the best matching section
-        const targetSectionStart = bestSection.start;
-        let closestBeat = fallbackBeat;
-        let minDistance = Infinity;
-
-        for (let i = 0; i < targetAnalysis.beats.length; i++) {
-          const distance = Math.abs(targetAnalysis.beats[i].start - targetSectionStart);
-          if (distance < minDistance) {
-            minDistance = distance;
-            closestBeat = i;
-          }
-        }
-
-        console.log(`🎼 Section match: tempo ${sourceSection.tempo}→${bestSection.tempo}, key ${sourceSection.key}→${bestSection.key} (score: ${bestScore})`);
         return closestBeat;
       }
 
-      getStrategyName(preferences) {
-        if (preferences.matchDownbeats && preferences.matchSections) return 'Advanced';
-        if (preferences.matchDownbeats) return 'Downbeat';
-        if (preferences.matchSections) return 'Section';
-        return 'Position';
-      }
-
-      precalculateSyncPoints(sourceAnalysis, targetAnalysis) {
-        if (!sourceAnalysis || !targetAnalysis) return [];
-
-        const syncPoints = [];
-        const totalBeats = sourceAnalysis.beats.length;
-
-        for (let i = 0; i < totalBeats; i += 4) {
-          const syncPoint = this.findSyncPoint(sourceAnalysis, targetAnalysis, i, {
-            matchDownbeats: true,
-            matchSections: false
-          });
-
-          syncPoints.push({
-            sourceBeat: i,
-            targetBeat: syncPoint.syncBeat,
-            confidence: syncPoint.confidence,
-            seekTime: syncPoint.seekTime,
-            isRecommended: syncPoint.confidence > 75
-          });
+      calculateSyncPoint(currentAnalysis, nextAnalysis, currentBeat) {
+        if (!currentAnalysis || !nextAnalysis) {
+          return { beat: 0, time: 0, confidence: 0 };
         }
 
-        return syncPoints;
+        // Find equivalent position in next track
+        const currentProgress = currentBeat / currentAnalysis.beats.length;
+        const targetBeat = Math.floor(currentProgress * nextAnalysis.beats.length);
+        
+        // Ensure valid beat index
+        const safeBeat = Math.max(0, Math.min(targetBeat, nextAnalysis.beats.length - 1));
+        const seekTime = nextAnalysis.beats[safeBeat].start;
+        
+        // Calculate confidence based on beat quality and position
+        let confidence = 60; // Base confidence
+        
+        if (currentAnalysis.beats[currentBeat]?.confidence > 0.5) confidence += 20;
+        if (nextAnalysis.beats[safeBeat]?.confidence > 0.5) confidence += 20;
+        
+        // Avoid very beginning or end
+        if (currentProgress > 0.1 && currentProgress < 0.9) confidence += 10;
+        
+        return {
+          beat: safeBeat,
+          time: seekTime,
+          confidence: Math.min(100, confidence)
+        };
+      }
+
+      recordSuccess(confidence) {
+        this.successHistory.push({
+          confidence,
+          timestamp: Date.now()
+        });
+        
+        // Keep only recent history
+        if (this.successHistory.length > 20) {
+          this.successHistory.shift();
+        }
+      }
+
+      getAverageSuccess() {
+        if (this.successHistory.length === 0) return 0;
+        const sum = this.successHistory.reduce((acc, record) => acc + record.confidence, 0);
+        return Math.round(sum / this.successHistory.length);
       }
     }
 
-    // AUTHENTICATION FUNCTIONS
+    const beatSync = new SimpleBeatSync();
+
+    // Authentication functions
     async function generateCodeChallenge(codeVerifier) {
       const encoder = new TextEncoder();
       const data = encoder.encode(codeVerifier);
@@ -1530,7 +469,7 @@
 
     async function login() {
       try {
-        showInfo('Initiating secure login...', 'Connecting to Spotify');
+        showStatus('Connecting to Spotify...', 'working');
         
         const state = generateRandomString(16);
         const codeVerifier = generateRandomString(128);
@@ -1538,7 +477,6 @@
         
         sessionStorage.setItem('code_verifier', codeVerifier);
         sessionStorage.setItem('state', state);
-        sessionStorage.setItem('login_timestamp', Date.now().toString());
         
         const authUrl = new URL('https://accounts.spotify.com/authorize');
         authUrl.searchParams.set('response_type', 'code');
@@ -1548,11 +486,10 @@
         authUrl.searchParams.set('state', state);
         authUrl.searchParams.set('code_challenge_method', 'S256');
         authUrl.searchParams.set('code_challenge', codeChallenge);
-        authUrl.searchParams.set('show_dialog', 'false');
         
         window.location = authUrl.toString();
       } catch (error) {
-        showError('Failed to initiate login: ' + error.message);
+        showStatus('Login failed: ' + error.message, 'disconnected');
       }
     }
 
@@ -1563,50 +500,34 @@
       const error = params.get('error');
 
       if (error) {
-        showError(`Authentication failed: ${error}`);
-        window.history.replaceState({}, document.title, window.location.pathname);
+        showStatus('Authentication failed: ' + error, 'disconnected');
         return;
       }
 
       if (!code) return;
 
       try {
-        showInfo('Completing authentication...', 'Exchanging authorization code');
+        showStatus('Completing authentication...', 'working');
         
         const storedState = sessionStorage.getItem('state');
         if (state !== storedState) {
-          throw new Error('State validation failed - possible security issue');
+          throw new Error('Invalid state parameter');
         }
 
         const codeVerifier = sessionStorage.getItem('code_verifier');
-        if (!codeVerifier) {
-          throw new Error('Code verifier missing');
-        }
-
-        const body = new URLSearchParams({
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: REDIRECT_URI,
-          client_id: CLIENT_ID,
-          code_verifier: codeVerifier
-        });
-
         const response = await fetch('https://accounts.spotify.com/api/token', {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json'
-          },
-          body
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: REDIRECT_URI,
+            client_id: CLIENT_ID,
+            code_verifier: codeVerifier
+          })
         });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(`HTTP ${response.status}: ${errorData.error_description || response.statusText}`);
-        }
-
         const data = await response.json();
-        
         if (!data.access_token) {
           throw new Error('No access token received');
         }
@@ -1614,1126 +535,374 @@
         accessToken = data.access_token;
         sessionStorage.setItem('access_token', data.access_token);
         
-        if (data.refresh_token) {
-          sessionStorage.setItem('refresh_token', data.refresh_token);
-        }
-        
-        const expiresAt = Date.now() + ((data.expires_in - 60) * 1000);
-        sessionStorage.setItem('token_expires', expiresAt.toString());
-        
         window.history.replaceState({}, document.title, window.location.pathname);
         sessionStorage.removeItem('code_verifier');
         sessionStorage.removeItem('state');
-        sessionStorage.removeItem('login_timestamp');
         
-        showSuccess('🎉 Connected to Spotify! Initializing Beat Sync Engine...');
-        await initializeDJ();
+        await initializeApp();
         
       } catch (error) {
-        showError(`Authentication failed: ${error.message}`);
-        sessionStorage.removeItem('code_verifier');
-        sessionStorage.removeItem('state');
-        sessionStorage.removeItem('login_timestamp');
-        window.history.replaceState({}, document.title, window.location.pathname);
+        showStatus('Authentication failed: ' + error.message, 'disconnected');
       }
     }
 
-    async function refreshToken() {
-      const refresh_token = sessionStorage.getItem('refresh_token');
-      if (!refresh_token) {
-        showError('Session expired. Please login again.');
-        logout();
-        return false;
-      }
-
-      try {
-        showInfo('Refreshing session...', 'Updating authentication tokens');
-        
-        const body = new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token,
-          client_id: CLIENT_ID
-        });
-
-        const response = await fetch('https://accounts.spotify.com/api/token', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json'
-          },
-          body
-        });
-
-        if (!response.ok) {
-          throw new Error('Token refresh failed');
-        }
-
-        const data = await response.json();
-        
-        if (!data.access_token) {
-          throw new Error('No access token in refresh response');
-        }
-
-        accessToken = data.access_token;
-        sessionStorage.setItem('access_token', data.access_token);
-        
-        if (data.refresh_token) {
-          sessionStorage.setItem('refresh_token', data.refresh_token);
-        }
-        
-        const expiresAt = Date.now() + ((data.expires_in - 60) * 1000);
-        sessionStorage.setItem('token_expires', expiresAt.toString());
-
-        return true;
-        
-      } catch (error) {
-        showError('Session refresh failed. Please login again.');
-        logout();
-        return false;
-      }
-    }
-
-    async function ensureValidToken() {
-      const expires = sessionStorage.getItem('token_expires');
-      if (!expires || Date.now() >= parseInt(expires)) {
-        return await refreshToken();
-      }
-      return true;
-    }
-
-    // SPOTIFY API FUNCTIONS
+    // Spotify API functions
     async function spotifyRequest(endpoint, options = {}) {
-      if (!await ensureValidToken()) return null;
+      try {
+        const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            ...options.headers
+          },
+          ...options
+        });
 
-      const maxRetries = 3;
-      let retries = 0;
-
-      while (retries < maxRetries) {
-        try {
-          const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-              ...options.headers
-            },
-            ...options
-          });
-
-          if (response.status === 401 && retries === 0) {
-            if (await refreshToken()) {
-              retries++;
-              continue;
-            } else {
-              return null;
-            }
-          }
-
-          if (response.status === 429) {
-            const retryAfter = parseInt(response.headers.get('Retry-After') || '1');
-            await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-            retries++;
-            continue;
-          }
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(`Spotify API error: ${response.status} ${errorData.error?.message || response.statusText}`);
-          }
-
-          if (response.status === 204) return {};
-          return await response.json();
-          
-        } catch (error) {
-          console.error(`Spotify API request failed (attempt ${retries + 1}):`, error);
-          retries++;
-          
-          if (retries >= maxRetries) {
-            showError(`API request failed: ${error.message}`);
-            return null;
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 1000 * retries));
-        }
+        if (response.status === 204) return {};
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        return await response.json();
+      } catch (error) {
+        console.error('Spotify API error:', error);
+        return null;
       }
-      
-      return null;
     }
 
     async function getCurrentPlayback() {
-      return await spotifyRequest('/me/player?additional_types=episode');
-    }
-
-    async function getAudioFeatures(trackId) {
-      if (!trackId) return null;
-      return await spotifyRequest(`/audio-features/${trackId}`);
+      return await spotifyRequest('/me/player');
     }
 
     async function getUserQueue() {
       return await spotifyRequest('/me/player/queue');
     }
 
-    // PLAYBACK CONTROL FUNCTIONS
-    async function togglePlayPause() {
-      if (!playbackState) {
-        showError('No active playback found. Please start playing music in Spotify.');
-        return;
-      }
-      
-      try {
-        const playBtn = document.getElementById('play-btn');
-        playBtn.disabled = true;
-        
-        if (playbackState.is_playing) {
-          await spotifyRequest('/me/player/pause', { method: 'PUT' });
-          playBtn.innerHTML = '▶️';
-          updateDeckStatus('a', 'paused');
-        } else {
-          await spotifyRequest('/me/player/play', { method: 'PUT' });
-          playBtn.innerHTML = '⏸️';
-          updateDeckStatus('a', 'playing');
-        }
-      } catch (error) {
-        showError('Playback control failed: ' + error.message);
-      } finally {
-        document.getElementById('play-btn').disabled = false;
-      }
-    }
-
-    async function skipToPrevious() {
-      try {
-        await spotifyRequest('/me/player/previous', { method: 'POST' });
-        performanceStats.transitionCount++;
-        updatePerformanceStats();
-        showInfo('⏮️ Skipped to previous track');
-      } catch (error) {
-        showError('Failed to skip to previous track: ' + error.message);
-      }
-    }
-
-    async function beatSyncSkip() {
-      if (transitionInProgress) {
-        showInfo('⏳ Transition already in progress...');
+    // Enhanced smart skip function that works with manual triggers
+    async function smartSkip() {
+      if (isProcessing) {
+        showStatus('Already processing skip...', 'working');
         return;
       }
 
-      if (!playbackState || !deckA.track) {
-        showError('❌ No track currently playing - start music in Spotify first');
+      if (!currentTrack) {
+        showStatus('No track playing - start music in Spotify', 'disconnected');
         return;
       }
 
       try {
-        // 🔒 LOCK THE FUNCTION
-        transitionInProgress = true;
-        const beatSkipBtn = document.getElementById('beat-skip-btn');
-        beatSkipBtn.disabled = true;
-        document.getElementById('transition-status').textContent = '🔍 Analyzing...';
-        showInfo('🎯 Starting intelligent beat-synchronized skip...');
+        isProcessing = true;
+        manualSkipInProgress = true;
+        document.getElementById('skip-btn').disabled = true;
+        showStatus('🎯 Analyzing beats for smart skip...', 'working');
 
-        // 📍 STEP 1: Get EXACT current playback position
-        const freshPlaybackState = await getCurrentPlayback();
-        if (!freshPlaybackState || !freshPlaybackState.is_playing) {
-          throw new Error('Music not playing - cannot sync beats');
+        // Get current playback state
+        const playbackState = await getCurrentPlayback();
+        if (!playbackState || !playbackState.is_playing) {
+          throw new Error('Music not playing');
         }
+
+        const currentPosition = playbackState.progress_ms;
         
-        const currentTimeMs = freshPlaybackState.progress_ms;
-        const currentTrack = freshPlaybackState.item;
-        
-        console.log(`🎵 Current position: ${formatTime(currentTimeMs)} in "${currentTrack.name}"`);
-
-        // 📊 STEP 2: Get beat analysis for current track
-        if (!deckA.analysis || deckA.track.id !== currentTrack.id) {
-          document.getElementById('transition-status').textContent = '🎼 Loading current beat data...';
-          showInfo('📊 Analyzing current track beats...');
-          deckA.analysis = await beatSyncEngine.getBeatAnalysis(currentTrack.id);
-          deckA.track = currentTrack;
+        // Get beat analysis for current track
+        if (!currentAnalysis) {
+          updateAIStatus('Learning current track beats...');
+          currentAnalysis = await beatSync.getBeatAnalysis(currentTrack.id);
         }
 
-        if (!deckA.analysis || !deckA.analysis.beats || deckA.analysis.beats.length === 0) {
-          throw new Error('Cannot analyze beats in current track');
-        }
-
-        // 🎯 STEP 3: Find EXACT current beat position
-        const currentBeatInfo = beatSyncEngine.getCurrentBeat(deckA.analysis, currentTimeMs);
-        console.log(`🥁 Current beat: ${currentBeatInfo.beat} (confidence: ${Math.round(currentBeatInfo.confidence * 100)}%)`);
-
-        // 📝 STEP 4: Get next track from queue
-        document.getElementById('transition-status').textContent = '🔍 Finding next track...';
+        // Get next track from queue
         const queue = await getUserQueue();
         if (!queue || !queue.queue || queue.queue.length === 0) {
-          throw new Error('No tracks in queue - add songs to continue');
+          throw new Error('No next track in queue');
         }
 
         const nextTrack = queue.queue[0];
-        console.log(`➡️ Next track: "${nextTrack.name}" by ${nextTrack.artists[0].name}`);
+        
+        // Get beat analysis for next track
+        updateAIStatus('Analyzing next track: ' + nextTrack.name);
+        nextTrackAnalysis = await beatSync.getBeatAnalysis(nextTrack.id);
 
-        // 📊 STEP 5: Get beat analysis for next track
-        document.getElementById('transition-status').textContent = '🎼 Analyzing next track...';
-        showInfo(`📊 Analyzing beats in "${nextTrack.name}"...`);
-        const nextAnalysis = await beatSyncEngine.getBeatAnalysis(nextTrack.id);
-
-        if (!nextAnalysis || !nextAnalysis.beats || nextAnalysis.beats.length === 0) {
-          throw new Error('Cannot analyze beats in next track');
+        if (!currentAnalysis || !nextTrackAnalysis) {
+          throw new Error('Could not analyze beats - using regular skip');
         }
 
-        // 🎯 STEP 6: Calculate PERFECT sync point
-        document.getElementById('transition-status').textContent = '🧮 Calculating sync point...';
+        // Calculate where we are now
+        const currentBeatNum = beatSync.getCurrentBeat(currentAnalysis, currentPosition);
         
-        const syncPreferences = {
-          matchDownbeats: djMode === 'party' || djMode === 'workout',
-          matchSections: djMode === 'chill' || djMode === 'focus',
-          prioritizeAccuracy: true
-        };
+        // Calculate sync point
+        const syncPoint = beatSync.calculateSyncPoint(currentAnalysis, nextTrackAnalysis, currentBeatNum);
         
-        const syncPoint = beatSyncEngine.findSyncPoint(
-          deckA.analysis, 
-          nextAnalysis, 
-          currentBeatInfo.beat, 
-          syncPreferences
-        );
-
-        console.log(`🎯 Sync calculation:
-          - Current beat: ${currentBeatInfo.beat} at ${formatTime(currentTimeMs)}
-          - Target beat: ${syncPoint.syncBeat} at ${formatTime(syncPoint.seekTime)}
-          - Confidence: ${Math.round(syncPoint.confidence)}%
-          - Strategy: ${syncPoint.strategy}`);
-
-        // 📊 STEP 7: Update UI with sync info
-        document.getElementById('current-beat-a').textContent = currentBeatInfo.beat;
-        updateSyncConfidence('a', currentBeatInfo.confidence * 100);
-        document.getElementById('target-beat-b').textContent = syncPoint.syncBeat;
-        updateSyncConfidence('b', syncPoint.confidence);
-
-        // 🚀 STEP 8: Perform the EXACT beat-synchronized transition
-        document.getElementById('transition-status').textContent = '🎵 Syncing beats...';
-        showInfo(`🎯 Syncing from beat ${currentBeatInfo.beat} to beat ${syncPoint.syncBeat}...`);
+        updateAIStatus(`Syncing to beat ${syncPoint.beat} (${Math.round(syncPoint.confidence)}% confidence)`);
         
-        // CRITICAL FIX: Use the enhanced seek function
-        const syncSuccess = await performEnhancedBeatSync(syncPoint, nextTrack, currentBeatInfo);
+        // Perform the smart skip
+        await performSmartSkip(syncPoint, nextTrack.id);
         
-        if (!syncSuccess) {
-          throw new Error('Beat synchronization failed - position not reached');
-        }
-
-        // 📈 STEP 9: Update performance stats
-        performanceStats.transitionCount++;
-        const accuracyBoost = syncPoint.confidence > 80 ? 2 : syncPoint.confidence > 60 ? 1 : -1;
-        performanceStats.syncAccuracy = Math.min(100, Math.max(0, performanceStats.syncAccuracy + accuracyBoost));
-        updatePerformanceStats();
-
-        // 💾 STEP 10: Store data for next transition
-        deckB.track = nextTrack;
-        deckB.analysis = nextAnalysis;
-        deckB.targetBeat = syncPoint.syncBeat;
-
-        // ✅ SUCCESS!
-        const successMsg = `🎯 Beat sync complete! Jumped from beat ${currentBeatInfo.beat} to beat ${syncPoint.syncBeat} (${Math.round(syncPoint.confidence)}% confidence)`;
-        showSuccess(successMsg);
-        console.log('✅ Beat synchronization successful!');
+        // Record success
+        beatSync.recordSuccess(syncPoint.confidence);
+        skipCount++;
+        
+        showStatus(`✅ Smart skip complete! Synced to beat ${syncPoint.beat}`, 'connected');
+        updateSkipCount();
+        updateAIStatus(`Success! Average accuracy: ${beatSync.getAverageSuccess()}%`);
 
       } catch (error) {
-        console.error('❌ Beat sync failed:', error);
-        showError(`Beat sync failed: ${error.message}`);
+        console.error('Smart skip failed:', error);
+        showStatus('Smart skip failed: ' + error.message, 'disconnected');
+        updateAIStatus('Failed - trying regular skip...');
         
-        // 🆘 FALLBACK: Try standard skip as backup
+        // Fallback to regular skip
         try {
           await spotifyRequest('/me/player/next', { method: 'POST' });
-          showInfo('⚡ Used fallback skip instead');
+          skipCount++;
+          updateSkipCount();
         } catch (fallbackError) {
-          showError('Skip completely failed: ' + fallbackError.message);
+          showStatus('All skip methods failed', 'disconnected');
         }
       } finally {
-        // 🔓 UNLOCK THE FUNCTION
-        transitionInProgress = false;
-        document.getElementById('transition-status').textContent = 'Ready';
-        document.getElementById('beat-skip-btn').disabled = false;
+        isProcessing = false;
+        document.getElementById('skip-btn').disabled = false;
+        setTimeout(() => {
+          manualSkipInProgress = false;
+        }, 3000);
       }
     }
 
-    async function performEnhancedBeatSync(syncPoint, nextTrack, currentBeatInfo) {
-      console.log('🚀 Starting ENHANCED beat synchronization...');
-      console.log(`📊 Sync Parameters:
-        - From: Beat ${currentBeatInfo.beat} in current track
-        - To: Beat ${syncPoint.syncBeat} at ${formatTime(syncPoint.seekTime)}
-        - Confidence: ${Math.round(syncPoint.confidence)}%
-        - Strategy: ${syncPoint.strategy}`);
+    // Fixed perform smart skip with proper seek
+    async function performSmartSkip(syncPoint, expectedTrackId) {
+      console.log(`Smart skip: seeking to beat ${syncPoint.beat} at ${formatTime(syncPoint.time)}`);
       
-      // STEP 1: Skip to next track
-      console.log('⏭️ Executing skip to next track...');
-      showInfo('⏭️ Skipping to next track...');
+      // Skip to next track
+      await spotifyRequest('/me/player/next', { method: 'POST' });
       
-      const skipResult = await spotifyRequest('/me/player/next', { method: 'POST' });
+      // Wait and verify track change
+      let attempts = 0;
+      let trackChanged = false;
       
-      if (skipResult === null) {
-        throw new Error('Failed to skip to next track');
-      }
-      
-      console.log('✅ Skip command successful');
-      
-      // STEP 2: Wait for new track to load completely
-      console.log('⏳ Waiting for new track to load...');
-      await new Promise(resolve => setTimeout(resolve, 1200)); // Increased wait time
-      
-      // STEP 3: Verify new track is playing
-      let newTrackVerified = false;
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const checkState = await getCurrentPlayback();
-        if (checkState && checkState.item && checkState.item.id === nextTrack.id) {
-          newTrackVerified = true;
-          console.log(`✅ New track verified: "${checkState.item.name}"`);
+      while (attempts < 10 && !trackChanged) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const state = await getCurrentPlayback();
+        
+        if (state && state.item && state.item.id === expectedTrackId) {
+          trackChanged = true;
+          
+          // Seek to calculated position if more than 2 seconds
+          if (syncPoint.time > 2000) {
+            // Fixed: Use query parameter for position
+            await spotifyRequest(`/me/player/seek?position_ms=${Math.floor(syncPoint.time)}`, {
+              method: 'PUT'
+            });
+            
+            console.log(`Seeked to ${formatTime(syncPoint.time)}`);
+          }
           break;
         }
-        console.log(`⏳ Track verification attempt ${attempt + 1}/5...`);
-        await new Promise(resolve => setTimeout(resolve, 600));
+        attempts++;
       }
       
-      if (!newTrackVerified) {
-        throw new Error('New track failed to load - cannot sync beats');
-      }
-      
-      // STEP 4: CRITICAL - Seek to calculated beat position
-      const targetPositionMs = Math.floor(syncPoint.seekTime);
-      
-      console.log(`🎯 SEEKING TO BEAT ${syncPoint.syncBeat} at ${formatTime(targetPositionMs)}`);
-      showInfo(`🎯 Seeking to beat ${syncPoint.syncBeat}...`);
-      
-      // Use reliable seek with multiple attempts
-      const seekSuccess = await performReliableSeek(targetPositionMs);
-      
-      if (!seekSuccess) {
-        // Last resort: try one more time with a slightly different position
-        console.log('🔄 Last resort seek attempt...');
-        const adjustedPosition = Math.max(1000, targetPositionMs - 500); // Slight adjustment
-        const finalAttempt = await performReliableSeek(adjustedPosition);
-        
-        if (!finalAttempt) {
-          throw new Error(`Failed to seek to beat position after multiple attempts`);
-        }
-      }
-      
-      // STEP 5: Final verification
-      console.log('🔍 Final position verification...');
-      const finalVerification = await verifyBeatSyncSuccess(targetPositionMs, 4000); // 4 second tolerance
-      
-      if (finalVerification.success) {
-        console.log(`✅ BEAT SYNC SUCCESSFUL!
-          - Target: ${formatTime(finalVerification.expectedPosition)}
-          - Actual: ${formatTime(finalVerification.actualPosition)}
-          - Difference: ${finalVerification.difference}ms`);
-        
-        showSuccess(`🎯 Perfect sync! Beat ${currentBeatInfo.beat} → Beat ${syncPoint.syncBeat}`);
-        updateBeatGridVisualization(syncPoint);
-        return true;
-      } else {
-        console.log(`⚠️ Position verification failed: ${finalVerification.reason}`);
-        showInfo(`🎵 Partial sync - attempted beat ${syncPoint.syncBeat}`);
-        updateBeatGridVisualization(syncPoint);
-        return false; // Still attempted, so don't fail completely
+      if (!trackChanged) {
+        console.log('Track change not confirmed, but continuing...');
       }
     }
 
-    // ENHANCED: Add a dedicated verification function
-    async function verifyBeatSyncSuccess(expectedPosition, tolerance = 3000) {
+    // Handle external skips (from Spotify app)
+    async function handleExternalSkip(oldTrackId, newTrackId, lastKnownPosition) {
+      if (manualSkipInProgress || isProcessing) {
+        console.log('Ignoring external skip - manual skip in progress');
+        return;
+      }
+
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Show indicator
+        document.getElementById('external-skip-indicator').style.display = 'block';
         
-        const currentState = await getCurrentPlayback();
-        if (!currentState || currentState.progress_ms === undefined) {
-          return { success: false, reason: 'No playback state available' };
+        console.log(`External skip detected: ${oldTrackId} -> ${newTrackId} at position ${lastKnownPosition}`);
+        
+        // Get analysis for old track if we don't have it
+        let oldAnalysis = currentAnalysis;
+        if (!oldAnalysis && oldTrackId) {
+          oldAnalysis = await beatSync.getBeatAnalysis(oldTrackId);
         }
-        
-        const actualPosition = currentState.progress_ms;
-        const difference = Math.abs(actualPosition - expectedPosition);
-        
-        const success = difference <= tolerance;
-        
-        return {
-          success,
-          actualPosition,
-          expectedPosition,
-          difference,
-          reason: success ? 'Position verified successfully' : `Position difference too large: ${difference}ms`
-        };
-      } catch (error) {
-        return { success: false, reason: 'Verification failed: ' + error.message };
-      }
-    }
 
-    // ENHANCED: Better seek function with retries
-    async function performReliableSeek(targetPositionMs, maxRetries = 3) {
-      console.log(`🎯 Attempting to seek to ${formatTime(targetPositionMs)}`);
-      
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          console.log(`📡 Seek attempt ${attempt}/${maxRetries}`);
+        // Get analysis for new track
+        const newAnalysis = await beatSync.getBeatAnalysis(newTrackId);
+
+        if (oldAnalysis && newAnalysis) {
+          // Calculate where we were
+          const lastBeat = beatSync.getCurrentBeat(oldAnalysis, lastKnownPosition);
           
-          const seekResult = await spotifyRequest('/me/player/seek', {
-            method: 'PUT',
-            body: JSON.stringify({
-              position_ms: Math.floor(targetPositionMs)
-            })
-          });
-
-          if (seekResult !== null) { // Success (null means error, {} means success)
-            console.log(`✅ Seek attempt ${attempt} successful`);
+          // Calculate sync point
+          const syncPoint = beatSync.calculateSyncPoint(oldAnalysis, newAnalysis, lastBeat);
+          
+          // Apply the seek if needed
+          if (syncPoint.time > 2000) {
+            updateAIStatus(`External skip detected - syncing to beat ${syncPoint.beat}`);
             
-            // Verify the seek worked
-            await new Promise(resolve => setTimeout(resolve, 800));
-            const verification = await verifyBeatSyncSuccess(targetPositionMs);
+            // Fixed: Use query parameter for position
+            await spotifyRequest(`/me/player/seek?position_ms=${Math.floor(syncPoint.time)}`, {
+              method: 'PUT'
+            });
             
-            if (verification.success) {
-              console.log('✅ Seek verified successfully');
-              return true;
-            } else {
-              console.log(`⚠️ Seek verification failed: ${verification.reason}`);
-              if (attempt < maxRetries) {
-                console.log('🔄 Retrying seek...');
-                await new Promise(resolve => setTimeout(resolve, 500));
-              }
-            }
-          } else {
-            console.log(`❌ Seek attempt ${attempt} failed`);
-            if (attempt < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 500));
-            }
-          }
-        } catch (error) {
-          console.log(`❌ Seek attempt ${attempt} error: ${error.message}`);
-          if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        }
-      }
-      
-      console.log('❌ All seek attempts failed');
-      return false;
-    }
-
-    async function autoMix() {
-      if (transitionInProgress) return;
-      
-      showInfo('🤖 Auto Beat-Sync Mode Activated');
-      setTimeout(beatSyncSkip, 15000);
-    }
-
-    async function seekToPosition(event, deck) {
-      const rect = event.target.getBoundingClientRect();
-      const clickX = event.clientX - rect.left;
-      const percentage = clickX / rect.width;
-      
-      if (deck === 'a' && deckA.track) {
-        const newPosition = Math.floor(deckA.track.duration_ms * percentage);
-        try {
-          await spotifyRequest('/me/player/seek', {
-            method: 'PUT',
-            body: JSON.stringify({ position_ms: newPosition })
-          });
-          showInfo(`Seeking to: ${formatTime(newPosition)}`);
-        } catch (error) {
-          showError('Seek failed: ' + error.message);
-        }
-      }
-    }
-
-    // UI UPDATE FUNCTIONS
-    function updateSyncConfidence(deck, confidence) {
-      const badge = document.getElementById(`sync-confidence-${deck}-badge`);
-      if (!badge) return;
-      
-      const rounded = Math.round(confidence);
-      badge.textContent = `${rounded}%`;
-      
-      badge.className = 'sync-confidence';
-      if (rounded >= 80) {
-        badge.classList.add('high');
-      } else if (rounded >= 60) {
-        badge.classList.add('medium');
-      } else {
-        badge.classList.add('low');
-      }
-    }
-
-    function updateDeckStatus(deck, status) {
-      const statusElement = document.getElementById(`deck-status-${deck}`);
-      if (!statusElement) return;
-      
-      statusElement.className = 'deck-status';
-      if (status === 'playing') {
-        statusElement.classList.add('playing');
-      } else if (status === 'loading') {
-        statusElement.classList.add('loading');
-      }
-    }
-
-    function updateBeatGridVisualization(syncPoint) {
-      const beatGridA = document.getElementById('beat-grid-a');
-      if (beatGridA) {
-        const dots = beatGridA.querySelectorAll('.beat-dot');
-        dots.forEach((dot, index) => {
-          dot.classList.remove('active', 'sync-target');
-          if (index === (deckA.currentBeat % 8)) {
-            dot.classList.add('active');
-          }
-        });
-      }
-
-      const beatGridB = document.getElementById('beat-grid-b');
-      if (beatGridB) {
-        const dots = beatGridB.querySelectorAll('.beat-dot');
-        dots.forEach((dot, index) => {
-          dot.classList.remove('active', 'sync-target');
-          if (index === (syncPoint.syncBeat % 8)) {
-            dot.classList.add('sync-target');
-          }
-        });
-      }
-    }
-
-    function updateBeatMarkers(deck, analysis) {
-      if (!analysis || !analysis.beats) return;
-
-      const deckLetter = deck === 'A' ? 'a' : 'b';
-      const beatMarkers = document.getElementById(`beat-markers-${deckLetter}`);
-      if (!beatMarkers) return;
-
-      beatMarkers.innerHTML = '';
-      const trackDuration = analysis.totalDuration || 180000;
-
-      analysis.beats.forEach((beat, index) => {
-        const marker = document.createElement('div');
-        marker.className = beat.isDownbeat ? 'beat-marker downbeat' : 'beat-marker';
-        marker.style.left = `${(beat.start / trackDuration) * 100}%`;
-        
-        if (deck === 'B' && deckB.syncPoints) {
-          const syncPoint = deckB.syncPoints.find(sp => sp.targetBeat === index);
-          if (syncPoint && syncPoint.isRecommended) {
-            marker.classList.add('sync-point');
+            beatSync.recordSuccess(syncPoint.confidence);
+            skipCount++;
+            updateSkipCount();
+            
+            showStatus(`✅ Auto-synced to beat ${syncPoint.beat}`, 'connected');
           }
         }
         
-        beatMarkers.appendChild(marker);
-      });
+      } catch (error) {
+        console.error('External skip handling failed:', error);
+      } finally {
+        setTimeout(() => {
+          document.getElementById('external-skip-indicator').style.display = 'none';
+        }, 2000);
+      }
     }
 
+    // Enhanced update function to detect external skips
     async function updatePlaybackInfo() {
       try {
-        const newPlaybackState = await getCurrentPlayback();
-        if (!newPlaybackState || !newPlaybackState.item) {
-          document.getElementById('track-name-a').textContent = 'No Track Playing';
-          document.getElementById('track-artist-a').textContent = 'Start playing music in Spotify';
-          updateDeckStatus('a', '');
+        const playbackState = await getCurrentPlayback();
+        
+        if (!playbackState || !playbackState.item) {
+          document.getElementById('track-name').textContent = 'No Track Playing';
+          document.getElementById('track-artist').textContent = 'Start music in Spotify';
+          document.getElementById('track-progress').textContent = '0:00 / 0:00';
+          document.getElementById('play-btn').innerHTML = '▶️ Play';
+          lastTrackId = null;
           return;
         }
 
-        playbackState = newPlaybackState;
-        const track = newPlaybackState.item;
+        const track = playbackState.item;
+        
+        // Update track info
+        document.getElementById('track-name').textContent = track.name;
+        document.getElementById('track-artist').textContent = track.artists.map(a => a.name).join(', ');
+        document.getElementById('track-progress').textContent = 
+          `${formatTime(playbackState.progress_ms)} / ${formatTime(track.duration_ms)}`;
+        document.getElementById('play-btn').innerHTML = playbackState.is_playing ? '⏸️ Pause' : '▶️ Play';
 
-        document.getElementById('play-btn').innerHTML = playbackState.is_playing ? '⏸️' : '▶️';
-        updateDeckStatus('a', playbackState.is_playing ? 'playing' : 'paused');
-
-        if (!deckA.track || deckA.track.id !== track.id) {
-          await loadNewTrack(track);
+        // Update sync confidence display
+        const avgSuccess = beatSync.getAverageSuccess();
+        if (avgSuccess > 0) {
+          document.getElementById('sync-confidence').textContent = avgSuccess + '%';
         }
 
-        if (deckA.analysis && playbackState.is_playing) {
-          const currentBeatInfo = beatSyncEngine.getCurrentBeat(deckA.analysis, playbackState.progress_ms);
-          deckA.currentBeat = currentBeatInfo.beat;
+        // Update current beat if we have analysis
+        if (currentAnalysis && track.id === currentTrack?.id) {
+          currentBeat = beatSync.getCurrentBeat(currentAnalysis, playbackState.progress_ms);
+          document.getElementById('current-beat').textContent = currentBeat;
+        }
+
+        // Detect track changes (external skips)
+        if (lastTrackId && lastTrackId !== track.id && !manualSkipInProgress) {
+          console.log(`Track changed externally: ${lastTrackId} -> ${track.id}`);
           
-          updateBeatGridDisplay('a', currentBeatInfo.beat);
-          updateSyncConfidence('a', currentBeatInfo.confidence * 100);
+          // Handle the external skip
+          handleExternalSkip(lastTrackId, track.id, lastPosition);
         }
 
-        updatePlayhead('a', playbackState.progress_ms, track.duration_ms);
-        updateTimeDisplay('a', playbackState.progress_ms, track.duration_ms);
-        updateTransitionTimeline();
+        // Update tracking variables
+        lastTrackId = track.id;
+        lastPosition = playbackState.progress_ms;
+
+        // If track changed, update current track and reset analysis
+        if (!currentTrack || currentTrack.id !== track.id) {
+          currentTrack = track;
+          currentAnalysis = null;
+          
+          // Start analyzing new track in background
+          beatSync.getBeatAnalysis(track.id).then(analysis => {
+            currentAnalysis = analysis;
+            updateAIStatus('Current track analyzed - ready for smart skip!');
+          });
+        }
 
       } catch (error) {
-        console.error('Failed to update playback info:', error);
+        console.error('Update failed:', error);
       }
     }
 
-    async function loadNewTrack(track) {
-      updateDeckStatus('a', 'loading');
-      deckA.track = track;
-      
-      const [features, analysis] = await Promise.all([
-        getAudioFeatures(track.id),
-        beatSyncEngine ? beatSyncEngine.getBeatAnalysis(track.id) : null
-      ]);
-      
-      if (features) {
-        deckA.features = features;
-        updateTrackDisplay('A', track, features);
-      }
-
-      if (analysis) {
-        deckA.analysis = analysis;
-        updateBeatMarkers('A', analysis);
-        await prepareNextTrack();
-        updateAIRecommendations();
-      }
-      
-      updateDeckStatus('a', playbackState && playbackState.is_playing ? 'playing' : 'paused');
-    }
-
-    async function prepareNextTrack() {
+    async function togglePlayPause() {
       try {
-        updateDeckStatus('b', 'loading');
-        const queue = await getUserQueue();
-        if (!queue || !queue.queue || queue.queue.length === 0) return;
-
-        const nextTrack = queue.queue[0];
-        const [nextFeatures, nextAnalysis] = await Promise.all([
-          getAudioFeatures(nextTrack.id),
-          beatSyncEngine ? beatSyncEngine.getBeatAnalysis(nextTrack.id) : null
-        ]);
-
-        if (nextFeatures && nextAnalysis) {
-          deckB.track = nextTrack;
-          deckB.features = nextFeatures;
-          deckB.analysis = nextAnalysis;
-          
-          deckB.syncPoints = beatSyncEngine.precalculateSyncPoints(deckA.analysis, nextAnalysis);
-          
-          updateTrackDisplay('B', nextTrack, nextFeatures);
-          updateBeatMarkers('B', nextAnalysis);
-          updateIntelligentQueue();
-        }
+        const playbackState = await getCurrentPlayback();
+        if (!playbackState) return;
         
-        updateDeckStatus('b', '');
+        if (playbackState.is_playing) {
+          await spotifyRequest('/me/player/pause', { method: 'PUT' });
+        } else {
+          await spotifyRequest('/me/player/play', { method: 'PUT' });
+        }
       } catch (error) {
-        console.error('Failed to prepare next track:', error);
-        updateDeckStatus('b', '');
+        showStatus('Playback control failed', 'disconnected');
       }
     }
 
-    function updateBeatGridDisplay(deck, currentBeat) {
-      const deckLetter = deck.toLowerCase();
-      const beatGrid = document.getElementById(`beat-grid-${deckLetter}`);
-      if (!beatGrid) return;
-
-      const dots = beatGrid.querySelectorAll('.beat-dot');
-      dots.forEach((dot, index) => {
-        dot.classList.remove('active');
-        if (index === (currentBeat % 8)) {
-          dot.classList.add('active');
-        }
-      });
-
-      document.getElementById(`current-beat-${deckLetter}`).textContent = currentBeat;
+    // Update functions
+    function updateSkipCount() {
+      document.getElementById('skip-count').textContent = skipCount;
     }
 
-    function updateAIRecommendations() {
-      if (!deckA.analysis || !deckB.analysis || !beatSyncEngine) {
-        document.getElementById('ai-recommendations').innerHTML = 
-          '<div class="recommendation-item">Loading beat analysis...</div>';
-        return;
-      }
-
-      const recommendations = [];
-      const syncQuality = calculateOverallSyncQuality();
-
-      const scoreElement = document.getElementById('ai-score');
-      scoreElement.textContent = `${Math.round(syncQuality)}%`;
-      
-      if (syncQuality > 85) {
-        scoreElement.style.color = '#1db954';
-        recommendations.push({ text: '🎯 Excellent beat alignment detected', priority: 'high' });
-      } else if (syncQuality > 70) {
-        scoreElement.style.color = '#ffaa44';
-        recommendations.push({ text: '✨ Good sync potential found', priority: 'medium' });
-      } else if (syncQuality > 50) {
-        scoreElement.style.color = '#ff6b35';
-        recommendations.push({ text: '⚠️ Moderate sync quality - timing critical', priority: 'medium' });
-      } else {
-        scoreElement.style.color = '#ff4444';
-        recommendations.push({ text: '🔧 Challenging sync - manual timing recommended', priority: 'low' });
-      }
-
-      const tempoDiff = Math.abs(deckA.analysis.averageTempo - deckB.analysis.averageTempo);
-      if (tempoDiff < 5) {
-        recommendations.push({ text: '🥁 Perfect tempo match - seamless transition possible', priority: 'high' });
-      } else if (tempoDiff < 15) {
-        recommendations.push({ text: `🎵 Close tempo (±${tempoDiff.toFixed(1)} BPM) - good sync window`, priority: 'medium' });
-      } else {
-        recommendations.push({ text: `⚡ Large tempo gap (${tempoDiff.toFixed(1)} BPM) - extended sync needed`, priority: 'low' });
-      }
-
-      const hasGoodDownbeats = deckB.syncPoints && deckB.syncPoints.some(sp => sp.isRecommended);
-      if (hasGoodDownbeats) {
-        recommendations.push({ text: '🎪 Strong downbeat sync points available', priority: 'high' });
-      }
-
-      const recommendationsElement = document.getElementById('ai-recommendations');
-      recommendationsElement.innerHTML = recommendations
-        .slice(0, 3)
-        .map(rec => `<div class="recommendation-item ${rec.priority}">• ${rec.text}</div>`)
-        .join('');
+    function updateAIStatus(message) {
+      document.getElementById('ai-message').textContent = message;
     }
 
-    function calculateOverallSyncQuality() {
-      if (!deckA.analysis || !deckB.analysis) return 0;
-
-      let quality = 50;
-
-      const tempoDiff = Math.abs(deckA.analysis.averageTempo - deckB.analysis.averageTempo);
-      const tempoScore = Math.max(0, 100 - (tempoDiff * 2));
-      quality += (tempoScore - 50) * 0.3;
-
-      if (deckB.syncPoints) {
-        const goodSyncPoints = deckB.syncPoints.filter(sp => sp.confidence > 75).length;
-        const syncScore = Math.min(100, (goodSyncPoints / deckB.syncPoints.length) * 100);
-        quality += (syncScore - 50) * 0.4;
-      }
-
-      if (deckA.features && deckB.features) {
-        const energyDiff = Math.abs(deckA.features.energy - deckB.features.energy);
-        const danceabilityDiff = Math.abs(deckA.features.danceability - deckB.features.danceability);
-        const featuresScore = 100 - ((energyDiff + danceabilityDiff) * 50);
-        quality += (featuresScore - 50) * 0.3;
-      }
-
-      return Math.max(0, Math.min(100, quality));
-    }
-
-    function updateTrackDisplay(deck, track, features) {
-      const deckLetter = deck === 'A' ? 'a' : 'b';
-      
-      document.getElementById(`track-name-${deckLetter}`).textContent = track.name;
-      document.getElementById(`track-artist-${deckLetter}`).textContent = 
-        track.artists.map(a => a.name).join(', ');
-      document.getElementById(`total-time-${deckLetter}`).textContent = formatTime(track.duration_ms);
-      
-      if (features) {
-        updateAudioFeatures(deckLetter, features);
-      }
-    }
-
-    function updateAudioFeatures(deck, features) {
-      const elements = {
-        energy: document.getElementById(`energy-${deck}`),
-        valence: document.getElementById(`valence-${deck}`),
-        dance: document.getElementById(`dance-${deck}`),
-        key: document.getElementById(`key-${deck}`),
-        tempo: document.getElementById(`tempo-${deck}`),
-        speech: document.getElementById(`speech-${deck}`),
-        acoustic: document.getElementById(`acoustic-${deck}`)
-      };
-      
-      if (elements.energy) elements.energy.textContent = `${Math.round(features.energy * 100)}%`;
-      if (elements.valence) elements.valence.textContent = `${Math.round(features.valence * 100)}%`;
-      if (elements.dance) elements.dance.textContent = `${Math.round(features.danceability * 100)}%`;
-      if (elements.key) elements.key.textContent = getKeyName(features.key);
-      if (elements.tempo) elements.tempo.textContent = `${Math.round(features.tempo)} BPM`;
-      if (elements.speech) elements.speech.textContent = `${Math.round(features.speechiness * 100)}%`;
-      if (elements.acoustic) elements.acoustic.textContent = `${Math.round(features.acousticness * 100)}%`;
-      
-      const featureBars = document.querySelectorAll(`#features-${deck} .feature-fill`);
-      if (featureBars.length >= 3) {
-        featureBars[0].style.width = `${features.energy * 100}%`;
-        featureBars[1].style.width = `${features.valence * 100}%`;
-        featureBars[2].style.width = `${features.danceability * 100}%`;
-      }
-    }
-
-    function updatePlayhead(deck, progress, duration) {
-      const deckLetter = deck === 'A' ? 'a' : 'b';
-      const playhead = document.getElementById(`playhead-${deckLetter}`);
-      
-      if (playhead && duration > 0) {
-        const percentage = (progress / duration) * 100;
-        playhead.style.left = `${Math.min(100, Math.max(0, percentage))}%`;
-      }
-    }
-
-    function updateTimeDisplay(deck, progress, duration) {
-      document.getElementById(`current-time-${deck}`).textContent = formatTime(progress);
-      document.getElementById(`total-time-${deck}`).textContent = formatTime(duration);
-    }
-
-    function updateTransitionTimeline() {
-      if (!playbackState || !deckA.track) return;
-      
-      const progress = playbackState.progress_ms;
-      const duration = deckA.track.duration_ms;
-      const percentage = (progress / duration) * 100;
-      
-      document.getElementById('transition-progress').style.width = `${percentage}%`;
-      
-      if (deckB.syncPoints && deckB.syncPoints.length > 0) {
-        const currentBeatProgress = deckA.currentBeat / (deckA.analysis?.beats.length || 1);
-        const optimalPoint = 70 + (currentBeatProgress * 20);
-        document.getElementById('transition-marker').style.left = `${optimalPoint}%`;
-      }
-    }
-
-    async function updateIntelligentQueue() {
-      try {
-        const queue = await getUserQueue();
-        if (!queue || !queue.queue) return;
-        
-        const queueList = document.getElementById('queue-list');
-        if (!queueList) return;
-        
-        queueList.innerHTML = '';
-        
-        for (let i = 0; i < Math.min(5, queue.queue.length); i++) {
-          const track = queue.queue[i];
-          const features = await getAudioFeatures(track.id);
-          
-          let compatibility = 'good';
-          let score = 75;
-          
-          if (features && deckA.features) {
-            const energyDiff = Math.abs(deckA.features.energy - features.energy);
-            const tempoDiff = Math.abs(deckA.features.tempo - features.tempo);
-            const danceabilityDiff = Math.abs(deckA.features.danceability - features.danceability);
-            
-            score = 100 - ((energyDiff + (tempoDiff/100) + danceabilityDiff) * 33);
-            
-            if (score > 80) compatibility = 'optimal';
-            else if (score > 60) compatibility = 'good';
-            else compatibility = 'challenging';
-          }
-          
-          const queueItem = document.createElement('div');
-          queueItem.className = `queue-item ${compatibility}`;
-          queueItem.innerHTML = `
-            <div class="queue-item-info">
-              <div class="queue-item-name">${track.name}</div>
-              <div class="queue-item-artist">${track.artists[0].name}</div>
-            </div>
-            <div class="queue-item-score">${Math.round(score)}%</div>
-          `;
-          
-          queueList.appendChild(queueItem);
-        }
-        
-      } catch (error) {
-        console.error('Failed to update intelligent queue:', error);
-      }
-    }
-
-    function updatePerformanceStats() {
-      document.getElementById('sync-accuracy').textContent = `${Math.round(performanceStats.syncAccuracy)}%`;
-      document.getElementById('transition-count').textContent = performanceStats.transitionCount;
-      document.getElementById('learning-progress').textContent = 
-        performanceStats.learningActive ? 'Active' : 'Paused';
-    }
-
-    // DJ MODE AND CONTROL FUNCTIONS
-    function setDJMode(mode) {
-      djMode = mode;
-      
-      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
-      
-      showInfo(`🎯 DJ Mode: ${mode.toUpperCase()}`);
-    }
-
-    function updateCrossfader() {
-      const crossfader = document.getElementById('crossfader');
-      const value = parseInt(crossfader.value);
-      
-      if (audioContext && deckA.gainNode && deckB.gainNode) {
-        const deckAGain = Math.cos((value / 100) * Math.PI / 2);
-        const deckBGain = Math.sin((value / 100) * Math.PI / 2);
-        
-        deckA.gainNode.gain.setValueAtTime(deckAGain, audioContext.currentTime);
-        deckB.gainNode.gain.setValueAtTime(deckBGain, audioContext.currentTime);
-      }
-    }
-
-    function updateVolume(deck) {
-      const volumeSlider = document.getElementById(`volume-${deck.toLowerCase()}`);
-      const volume = parseInt(volumeSlider.value);
-      
-      if (deck === 'A' && deckA.gainNode) {
-        deckA.gainNode.gain.setValueAtTime(volume / 100, audioContext.currentTime);
-      } else if (deck === 'B' && deckB.gainNode) {
-        deckB.gainNode.gain.setValueAtTime(volume / 100, audioContext.currentTime);
-      }
-    }
-
-    // UTILITY FUNCTIONS
-    function getKeyName(key) {
-      const keys = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
-      return keys[key] || 'Unknown';
-    }
-
+    // Utility functions
     function formatTime(ms) {
       const minutes = Math.floor(ms / 60000);
       const seconds = Math.floor((ms % 60000) / 1000);
       return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
 
-    // STATUS AND LOADING FUNCTIONS
-    function showError(message, details = null) {
-      console.error('❌ Error:', message, details);
+    function showStatus(message, type) {
       const status = document.getElementById('status');
-      status.innerHTML = `❌ ${message}`;
-      status.className = 'status disconnected';
+      status.textContent = message;
+      status.className = `status ${type}`;
+    }
+
+    async function initializeApp() {
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('main-interface').style.display = 'block';
       
-      const errorDiv = document.getElementById('error-message');
-      errorDiv.textContent = message;
-      errorDiv.style.display = 'block';
-      setTimeout(() => errorDiv.style.display = 'none', 5000);
-    }
-
-    function showSuccess(message) {
-      const status = document.getElementById('status');
-      status.innerHTML = `✅ ${message}`;
-      status.className = 'status connected';
-    }
-
-    function showInfo(message, details = '') {
-      const status = document.getElementById('status');
-      status.innerHTML = `<span class="spinner"></span>ℹ️ ${message}`;
-      status.className = 'status loading';
-    }
-
-    function showLoading(message, details = '') {
-      const overlay = document.getElementById('loading-overlay');
-      document.getElementById('loading-text').textContent = message;
-      document.getElementById('loading-details').textContent = details;
-      overlay.classList.add('active');
-    }
-
-    function hideLoading() {
-      const overlay = document.getElementById('loading-overlay');
-      overlay.classList.remove('active');
-    }
-
-    // INITIALIZATION FUNCTIONS
-    async function initializeAudioContext() {
-      try {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        deckA.gainNode = audioContext.createGain();
-        deckB.gainNode = audioContext.createGain();
-        
-        deckA.gainNode.connect(audioContext.destination);
-        deckB.gainNode.connect(audioContext.destination);
-        
-        deckA.gainNode.gain.value = 0.7;
-        deckB.gainNode.gain.value = 0.3;
-        
-        console.log('✅ Web Audio API initialized');
-        return true;
-      } catch (error) {
-        console.error('❌ Web Audio API initialization failed:', error);
-        return false;
-      }
-    }
-
-    async function initializeDJ() {
-      try {
-        showInfo('🚀 Initializing Beat-Synchronized DJ System...');
-        
-        document.getElementById('login-section').style.display = 'none';
-        document.getElementById('dj-interface').style.display = 'grid';
-        document.getElementById('logout-btn').style.display = 'inline-block';
-        
-        const audioInitialized = await initializeAudioContext();
-        if (!audioInitialized) {
-          showError('Web Audio API initialization failed. Some features may not work.');
-        }
-        
-        beatSyncEngine = new BeatSyncEngine();
-        setupEventListeners();
-        updateInterval = setInterval(updatePlaybackInfo, 1000);
-        await updatePlaybackInfo();
-        updatePerformanceStats();
-        
-        showSuccess('🎉 Beat Sync Engine Online! Start playing music to begin.');
-        
-      } catch (error) {
-        showError('Failed to initialize DJ system: ' + error.message);
-      }
-    }
-
-    function setupEventListeners() {
-      document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-        
-        switch(e.key) {
-          case ' ':
-            e.preventDefault();
-            togglePlayPause();
-            break;
-          case 'ArrowRight':
-            e.preventDefault();
-            beatSyncSkip();
-            break;
-          case 'ArrowLeft':
-            e.preventDefault();
-            skipToPrevious();
-            break;
-          case 'a':
-            e.preventDefault();
-            autoMix();
-            break;
-        }
-      });
+      showStatus('🎵 Smart Beat Skip ready!', 'connected');
+      updateAIStatus('Ready to learn your music patterns');
+      
+      // Start monitoring playback more frequently for better external skip detection
+      updateInterval = setInterval(updatePlaybackInfo, 1000); // Changed from 2000 to 1000
+      await updatePlaybackInfo();
     }
 
     function logout() {
       if (updateInterval) clearInterval(updateInterval);
-      
-      if (audioContext) {
-        audioContext.close();
-        audioContext = null;
-      }
-      
       accessToken = null;
       sessionStorage.clear();
       
       document.getElementById('login-section').style.display = 'block';
-      document.getElementById('dj-interface').style.display = 'none';
-      document.getElementById('logout-btn').style.display = 'none';
-      document.getElementById('status').innerHTML = 'Not Connected';
-      document.getElementById('status').className = 'status disconnected';
+      document.getElementById('main-interface').style.display = 'none';
+      showStatus('Disconnected', 'disconnected');
       
-      // Reset global state
-      deckA = { track: null, features: null, analysis: null, gainNode: null, bufferSource: null, isPlaying: false, currentBeat: 0, beatTiming: [], syncPoints: [] };
-      deckB = { track: null, features: null, analysis: null, gainNode: null, bufferSource: null, isPlaying: false, targetBeat: 0, beatTiming: [], syncPoints: [] };
-      currentDeck = 'A';
-      playbackState = null;
-      beatSyncEngine = null;
-      transitionInProgress = false;
-      performanceStats = { syncAccuracy: 98, transitionCount: 0, learningActive: true };
-      
-      console.log('🚪 Logged out successfully');
+      // Reset state
+      currentTrack = null;
+      currentAnalysis = null;
+      nextTrackAnalysis = null;
+      currentBeat = 0;
+      skipCount = 0;
+      lastTrackId = null;
+      lastPosition = 0;
     }
 
-    // ERROR HANDLING
-    window.addEventListener('error', (e) => {
-      console.error('Global error caught:', e.error);
-      showError('An unexpected error occurred. Please refresh if issues persist.');
-    });
-
-    window.addEventListener('unhandledrejection', (e) => {
-      console.error('Unhandled promise rejection:', e.reason);
-      showError('A background process failed. Please refresh if issues persist.');
-    });
-
-    // MAIN INITIALIZATION
+    // Initialize on load
     window.onload = async function() {
-      try {
-        showInfo('🎵 Loading Beat-Synchronized Spotify AI DJ...');
-        
-        const storedToken = sessionStorage.getItem('access_token');
-        const expires = sessionStorage.getItem('token_expires');
-        
-        if (storedToken && expires && Date.now() < parseInt(expires)) {
-          accessToken = storedToken;
-          showSuccess('🔄 Restoring previous session...');
-          await initializeDJ();
-        } else {
-          await handleRedirect();
-        }
-        
-      } catch (error) {
-        showError('Initialization failed: ' + error.message);
+      showStatus('Loading Smart Beat Skip...', 'working');
+      
+      const storedToken = sessionStorage.getItem('access_token');
+      if (storedToken) {
+        accessToken = storedToken;
+        await initializeApp();
+      } else {
+        await handleRedirect();
+      }
+      
+      if (!accessToken) {
+        showStatus('Connect to Spotify to begin', 'disconnected');
       }
     };
   </script>
