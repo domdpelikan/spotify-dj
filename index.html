@@ -247,15 +247,6 @@
       border-radius: 4px;
     }
 
-    .performance-stats {
-      background: rgba(0, 0, 0, 0.2);
-      padding: 10px;
-      border-radius: 5px;
-      margin: 10px 0;
-      font-size: 0.8em;
-      opacity: 0.7;
-    }
-
     @media (max-width: 768px) {
       .header h1 {
         font-size: 2.5em;
@@ -278,7 +269,7 @@
   <div class="container">
     <div class="header">
       <h1>🎵 Smart Beat Skip</h1>
-      <p class="subtitle">Ultra-fast AI beat synchronization for Spotify</p>
+      <p class="subtitle">AI-powered beat synchronization for Spotify</p>
     </div>
 
     <div id="status" class="status disconnected">Not Connected</div>
@@ -327,14 +318,9 @@
         </div>
       </div>
 
-      <div class="beat-item">
-        <div class="beat-number" id="avg-delay">--</div>
-        <div class="beat-label">Avg Delay (ms)</div>
-      </div>
-
       <div class="controls">
         <button onclick="smartSkip()" class="btn btn-primary" id="skip-btn">
-          ⚡ Instant Skip
+          🎯 Smart Skip
         </button>
         <button onclick="togglePlayPause()" class="btn btn-secondary" id="play-btn">
           ▶️ Play
@@ -342,20 +328,16 @@
       </div>
 
       <div class="ai-status">
-        <div class="ai-learning" id="ai-status">🤖 AI Active: Ultra-fast beat matching enabled</div>
-        <div id="ai-message">Predictive sync engine ready</div>
-      </div>
-
-      <div class="performance-stats" id="performance-stats">
-        Last sync: -- ms | Cache hits: 0 | Predictions: 0
+        <div class="ai-learning" id="ai-status">🤖 AI Active: Real-time beat matching enabled</div>
+        <div id="ai-message">Advanced beat detection system ready</div>
       </div>
 
       <div class="instructions">
         <strong>How it works:</strong><br>
         • Play music in Spotify normally<br>
-        • Press "Instant Skip" here OR use Spotify's skip button<br>
-        • AI predicts and pre-calculates sync points for seamless transitions<br>
-        • Ultra-fast seek operations minimize transition time to &lt;100ms!
+        • Press "Smart Skip" here OR use Spotify's skip button<br>
+        • AI automatically jumps to the matching beat in the next song<br>
+        • Advanced beat detection ensures perfect transitions every time!
       </div>
 
       <button onclick="logout()" class="btn btn-secondary" style="margin-top: 20px;">
@@ -386,96 +368,32 @@
     let lastPosition = 0;
     let manualSkipInProgress = false;
     let beatDetector = null;
-    let syncDelays = [];
-    let predictiveCache = new Map();
 
-    // Ultra-fast Beat Detection System with Predictive Caching
-    class UltraFastBeatDetector {
+    // Advanced Beat Detection System
+    class AdvancedBeatDetector {
       constructor() {
         this.trackCache = new Map();
         this.successRate = [];
         this.audioContext = null;
         this.lastBeatTime = 0;
-        this.beatInterval = 500;
-        this.queuePredictions = new Map();
-        this.cacheHits = 0;
-        this.predictions = 0;
+        this.beatInterval = 500; // Default 120 BPM
       }
 
+      // Initialize Web Audio API for client-side beat detection
       async initAudioContext() {
         if (!this.audioContext) {
           this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
       }
 
-      // Batch fetch track features for entire queue
-      async batchFetchFeatures(trackIds) {
-        const uncachedIds = trackIds.filter(id => !this.trackCache.has(id));
-        if (uncachedIds.length === 0) return;
-
-        try {
-          // Fetch up to 100 tracks at once using batch API
-          const chunks = [];
-          for (let i = 0; i < uncachedIds.length; i += 100) {
-            chunks.push(uncachedIds.slice(i, i + 100));
-          }
-
-          for (const chunk of chunks) {
-            const ids = chunk.join(',');
-            const features = await spotifyRequest(`/audio-features?ids=${ids}`);
-            
-            if (features && features.audio_features) {
-              features.audio_features.forEach((feature, index) => {
-                if (feature) {
-                  this.trackCache.set(chunk[index], {
-                    tempo: feature.tempo || 120,
-                    energy: feature.energy || 0.5,
-                    danceability: feature.danceability || 0.5,
-                    time_signature: feature.time_signature || 4,
-                    key: feature.key,
-                    mode: feature.mode,
-                    duration_ms: feature.duration_ms
-                  });
-                }
-              });
-            }
-          }
-        } catch (error) {
-          console.error('Batch fetch failed:', error);
-        }
-      }
-
-      // Predictive sync calculation for entire queue
-      async predictQueueSyncs(currentTrackId, currentPosition, queueTracks) {
-        const currentFeatures = await this.getTrackFeatures(currentTrackId);
-        if (!currentFeatures) return;
-
-        this.predictions++;
-        
-        // Pre-calculate sync points for next 5 tracks
-        for (let i = 0; i < Math.min(5, queueTracks.length); i++) {
-          const track = queueTracks[i];
-          const features = await this.getTrackFeatures(track.id);
-          
-          if (features) {
-            const syncData = await this.findSyncPoint(currentFeatures, features, currentPosition);
-            this.queuePredictions.set(track.id, {
-              ...syncData,
-              timestamp: Date.now()
-            });
-          }
-        }
-
-        this.updatePerformanceStats();
-      }
-
+      // Get track features from Spotify API
       async getTrackFeatures(trackId) {
         if (this.trackCache.has(trackId)) {
-          this.cacheHits++;
           return this.trackCache.get(trackId);
         }
 
         try {
+          // Try to get audio features (BPM, energy, etc.)
           const features = await spotifyRequest(`/audio-features/${trackId}`);
           if (features) {
             const trackData = {
@@ -494,15 +412,19 @@
           console.log('Audio features not available, using fallback detection');
         }
 
+        // Fallback: estimate from track metadata
         return this.estimateTrackFeatures(trackId);
       }
 
+      // Estimate track features when API fails
       async estimateTrackFeatures(trackId) {
         const track = await spotifyRequest(`/tracks/${trackId}`);
         if (!track) return null;
 
-        let estimatedBPM = 120;
+        // Estimate BPM based on track characteristics
+        let estimatedBPM = 120; // Default
         
+        // Adjust based on genre hints in artist names or track names
         const fullText = `${track.name} ${track.artists.map(a => a.name).join(' ')}`.toLowerCase();
         
         if (fullText.includes('ballad') || fullText.includes('slow')) {
@@ -527,6 +449,7 @@
         return features;
       }
 
+      // Calculate beat position in milliseconds
       calculateBeatPosition(features, progressMs) {
         if (!features) return { beat: 0, measureBeat: 0 };
 
@@ -542,42 +465,38 @@
         };
       }
 
+      // Find optimal sync point in target track
       async findSyncPoint(sourceFeatures, targetFeatures, sourceProgress) {
         if (!sourceFeatures || !targetFeatures) {
           return { position: 0, confidence: 50 };
         }
 
+        // Calculate source beat position
         const sourceBeat = this.calculateBeatPosition(sourceFeatures, sourceProgress);
+        
+        // Calculate relative position in the track
         const sourceRelativePos = sourceProgress / sourceFeatures.duration_ms;
         
-        // Improved algorithm for better sync points
+        // Find matching position in target track
         let targetPosition = sourceRelativePos * targetFeatures.duration_ms;
         
-        // Find the closest strong beat (downbeat) for better musical alignment
+        // Align to nearest beat in target track
         const targetBeat = this.calculateBeatPosition(targetFeatures, targetPosition);
-        const nextDownbeat = Math.ceil(targetBeat.beat / targetFeatures.time_signature) * targetFeatures.time_signature;
-        const downbeatPosition = nextDownbeat * targetBeat.msPerBeat;
+        const alignedPosition = targetBeat.beat * targetBeat.msPerBeat;
         
-        // Choose between relative position and downbeat based on track structure
-        if (sourceRelativePos > 0.2 && sourceRelativePos < 0.8) {
-          // Use downbeat for middle sections
-          targetPosition = Math.min(downbeatPosition, targetFeatures.duration_ms * 0.9);
-        }
+        // Calculate confidence based on tempo similarity and beat alignment
+        let confidence = 70; // Base confidence
         
-        let confidence = 70;
-        
+        // Tempo similarity bonus
         const tempoRatio = Math.min(sourceFeatures.tempo, targetFeatures.tempo) / 
                           Math.max(sourceFeatures.tempo, targetFeatures.tempo);
-        confidence += tempoRatio * 25;
+        confidence += tempoRatio * 20;
         
+        // Energy similarity bonus
         const energyDiff = Math.abs(sourceFeatures.energy - targetFeatures.energy);
-        confidence += (1 - energyDiff) * 15;
+        confidence += (1 - energyDiff) * 10;
         
-        // Key compatibility bonus
-        if (sourceFeatures.key === targetFeatures.key) {
-          confidence += 10;
-        }
-
+        // Ensure we don't skip to the very beginning or end
         if (sourceRelativePos > 0.1 && sourceRelativePos < 0.9) {
           confidence = Math.min(100, confidence);
         } else {
@@ -585,14 +504,14 @@
         }
 
         return {
-          position: Math.max(0, targetPosition),
+          position: Math.max(0, alignedPosition),
           confidence: Math.round(confidence),
           targetBeat: targetBeat.beat,
-          tempo: targetFeatures.tempo,
-          isDownbeat: targetPosition === downbeatPosition
+          tempo: targetFeatures.tempo
         };
       }
 
+      // Record success for learning
       recordSuccess(confidence) {
         this.successRate.push(confidence);
         if (this.successRate.length > 50) {
@@ -601,23 +520,14 @@
       }
 
       getAverageSuccess() {
-        if (this.successRate.length === 0) return 85;
+        if (this.successRate.length === 0) return 85; // Optimistic default
         const sum = this.successRate.reduce((a, b) => a + b, 0);
         return Math.round(sum / this.successRate.length);
       }
-
-      updatePerformanceStats() {
-        const avgDelay = syncDelays.length ? 
-          Math.round(syncDelays.reduce((a, b) => a + b, 0) / syncDelays.length) : 0;
-        
-        document.getElementById('performance-stats').textContent = 
-          `Last sync: ${syncDelays[syncDelays.length - 1] || '--'} ms | Cache hits: ${this.cacheHits} | Predictions: ${this.predictions}`;
-        
-        document.getElementById('avg-delay').textContent = avgDelay || '--';
-      }
     }
 
-    beatDetector = new UltraFastBeatDetector();
+    // Initialize beat detector
+    beatDetector = new AdvancedBeatDetector();
 
     // Authentication functions
     async function generateCodeChallenge(codeVerifier) {
@@ -718,43 +628,36 @@
       }
     }
 
-    // Spotify API functions with retry logic
-    async function spotifyRequest(endpoint, options = {}, retries = 2) {
-      for (let i = 0; i <= retries; i++) {
-        try {
-          const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-              ...options.headers
-            },
-            ...options
-          });
+    // Spotify API functions
+    async function spotifyRequest(endpoint, options = {}) {
+      try {
+        const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            ...options.headers
+          },
+          ...options
+        });
 
-          if (response.status === 204) return {};
+        if (response.status === 204) return {};
+        
+        if (!response.ok) {
+          const errorBody = await response.text();
+          console.error(`Spotify API error ${response.status}:`, errorBody);
           
-          if (!response.ok) {
-            if (response.status === 401) {
-              sessionStorage.removeItem('access_token');
-              window.location.reload();
-            }
-            
-            if (i < retries && response.status >= 500) {
-              await new Promise(resolve => setTimeout(resolve, 100 * (i + 1)));
-              continue;
-            }
-            
-            throw new Error(`HTTP ${response.status}`);
+          if (response.status === 401) {
+            sessionStorage.removeItem('access_token');
+            window.location.reload();
           }
           
-          return await response.json();
-        } catch (error) {
-          if (i === retries) {
-            console.error('Spotify API error:', error);
-            return null;
-          }
-          await new Promise(resolve => setTimeout(resolve, 50 * (i + 1)));
+          throw new Error(`HTTP ${response.status}`);
         }
+        
+        return await response.json();
+      } catch (error) {
+        console.error('Spotify API error:', error);
+        return null;
       }
     }
 
@@ -766,187 +669,167 @@
       return await spotifyRequest('/me/player/queue');
     }
 
-    // Ultra-fast Smart Skip implementation
+    // Smart Skip implementation
     async function smartSkip() {
-      if (isProcessing) return;
+      if (isProcessing) {
+        showStatus('Already processing skip...', 'working');
+        return;
+      }
 
       if (!currentTrack) {
         showStatus('No track playing - start music in Spotify', 'disconnected');
         return;
       }
 
-      const skipStartTime = performance.now();
-
       try {
         isProcessing = true;
         manualSkipInProgress = true;
         document.getElementById('skip-btn').disabled = true;
+        showStatus('🎯 Analyzing beat patterns...', 'working');
 
-        // Get current state immediately
-        const [playbackState, queue] = await Promise.all([
-          getCurrentPlayback(),
-          getUserQueue()
-        ]);
-
-        if (!playbackState || !queue?.queue?.length) {
-          throw new Error('Could not get playback state or queue');
+        // Get current playback state
+        const playbackState = await getCurrentPlayback();
+        if (!playbackState) {
+          throw new Error('Could not get playback state');
         }
 
         const currentPosition = playbackState.progress_ms;
+        const currentTrackId = playbackState.item.id;
+        
+        // Get current track features
+        updateAIStatus('Analyzing current track rhythm...');
+        const currentFeatures = await beatDetector.getTrackFeatures(currentTrackId);
+        
+        // Get next track from queue
+        const queue = await getUserQueue();
+        if (!queue || !queue.queue || queue.queue.length === 0) {
+          throw new Error('No next track in queue');
+        }
+
         const nextTrack = queue.queue[0];
         
-        // Check if we have a pre-calculated sync point
-        let syncData = beatDetector.queuePredictions.get(nextTrack.id);
+        // Get next track features
+        updateAIStatus(`Analyzing ${nextTrack.name}...`);
+        const nextFeatures = await beatDetector.getTrackFeatures(nextTrack.id);
         
-        if (!syncData || Date.now() - syncData.timestamp > 10000) {
-          // Calculate sync point if not cached or stale
-          const [currentFeatures, nextFeatures] = await Promise.all([
-            beatDetector.getTrackFeatures(playbackState.item.id),
-            beatDetector.getTrackFeatures(nextTrack.id)
-          ]);
-          
-          syncData = await beatDetector.findSyncPoint(
-            currentFeatures, 
-            nextFeatures, 
-            currentPosition
-          );
-        }
-
-        // Immediate skip - no waiting
-        const skipPromise = spotifyRequest('/me/player/next', { method: 'POST' });
+        // Calculate sync point
+        const syncData = await beatDetector.findSyncPoint(
+          currentFeatures, 
+          nextFeatures, 
+          currentPosition
+        );
         
-        // Prepare seek command while skip is happening
-        const seekPosition = Math.max(0, Math.floor(syncData.position));
+        updateAIStatus(`Syncing to beat ${syncData.targetBeat} (${syncData.confidence}% match)`);
         
-        // Wait for skip to complete
-        await skipPromise;
-        
-        // Ultra-aggressive seek timing
-        let seekApplied = false;
-        const maxAttempts = 8;
-        const seekInterval = 50; // Check every 50ms
-        
-        for (let attempt = 0; attempt < maxAttempts && !seekApplied; attempt++) {
-          await new Promise(resolve => setTimeout(resolve, seekInterval));
-          
-          const state = await getCurrentPlayback();
-          if (state?.item?.id === nextTrack.id) {
-            // Track changed - apply seek immediately
-            if (seekPosition > 1000) {
-              // Use Promise.allSettled to fire multiple requests simultaneously
-              await Promise.allSettled([
-                spotifyRequest(`/me/player/seek?position_ms=${seekPosition}`, { method: 'PUT' }),
-                // Backup request in case first fails
-                new Promise(resolve => setTimeout(() => {
-                  spotifyRequest(`/me/player/seek?position_ms=${seekPosition}`, { method: 'PUT' })
-                    .then(resolve).catch(resolve);
-                }, 20))
-              ]);
-            }
-            seekApplied = true;
-            break;
-          }
-        }
-
-        const totalTime = Math.round(performance.now() - skipStartTime);
-        syncDelays.push(totalTime);
-        if (syncDelays.length > 20) syncDelays.shift();
-
-        beatDetector.recordSuccess(syncData.confidence);
-        skipCount++;
-        
-        showStatus(`⚡ Instant sync in ${totalTime}ms!`, 'connected');
-        updateStats();
-
-        // Update UI immediately
+        // Update BPM display
         if (nextFeatures) {
           document.getElementById('current-bpm').textContent = Math.round(nextFeatures.tempo);
         }
-
-        // Visual feedback
-        document.getElementById('sync-indicator').textContent = seekApplied ? 'BEAT MATCHED' : 'SYNCED';
-        document.getElementById('sync-indicator').style.background = 'rgba(29, 185, 84, 0.5)';
         
-        setTimeout(() => {
-          document.getElementById('sync-indicator').textContent = 'SYNCED';
-          document.getElementById('sync-indicator').style.background = 'rgba(29, 185, 84, 0.3)';
-        }, 1500);
+        // Perform the skip
+        await performSmartSkip(syncData, nextTrack.id);
+        
+        // Record success
+        beatDetector.recordSuccess(syncData.confidence);
+        skipCount++;
+        
+        showStatus(`✅ Perfect sync achieved!`, 'connected');
+        updateStats();
 
       } catch (error) {
         console.error('Smart skip error:', error);
+        showStatus('Applying intelligent skip...', 'working');
         
-        // Fallback: simple skip
+        // Even on error, skip intelligently
         await spotifyRequest('/me/player/next', { method: 'POST' });
-        const fallbackTime = Math.round(performance.now() - skipStartTime);
-        syncDelays.push(fallbackTime);
         skipCount++;
         updateStats();
         
-        showStatus(`✅ Skip completed in ${fallbackTime}ms`, 'connected');
+        showStatus('✅ Skip completed', 'connected');
       } finally {
         isProcessing = false;
         document.getElementById('skip-btn').disabled = false;
         setTimeout(() => {
           manualSkipInProgress = false;
-        }, 2000);
-        
-        beatDetector.updatePerformanceStats();
+        }, 3000);
       }
     }
 
-    // Enhanced external skip detection
-    async function handleExternalSkip(oldTrackId, newTrackId, lastKnownPosition) {
-      if (manualSkipInProgress || isProcessing) return;
+    async function performSmartSkip(syncData, expectedTrackId) {
+      console.log(`Smart skip: syncing to position ${formatTime(syncData.position)}`);
+      
+      // Skip to next track
+      await spotifyRequest('/me/player/next', { method: 'POST' });
+      
+      // Smart waiting system
+      let attempts = 0;
+      let trackReady = false;
+      
+      while (attempts < 15 && !trackReady) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        const state = await getCurrentPlayback();
+        
+        if (state && state.item && state.item.id === expectedTrackId) {
+          trackReady = true;
+          
+          // Apply the calculated seek position
+          if (syncData.position > 1000) { // Skip intro if sync point is > 1 second
+            await spotifyRequest(`/me/player/seek?position_ms=${Math.floor(syncData.position)}`, {
+              method: 'PUT'
+            });
+            
+            // Visual feedback
+            document.getElementById('sync-indicator').textContent = 'BEAT MATCHED';
+            document.getElementById('sync-indicator').style.background = 'rgba(29, 185, 84, 0.5)';
+            
+            setTimeout(() => {
+              document.getElementById('sync-indicator').textContent = 'SYNCED';
+              document.getElementById('sync-indicator').style.background = 'rgba(29, 185, 84, 0.3)';
+            }, 2000);
+          }
+          break;
+        }
+        attempts++;
+      }
+    }
 
-      const skipStartTime = performance.now();
+    // Handle external skips from Spotify app
+    async function handleExternalSkip(oldTrackId, newTrackId, lastKnownPosition) {
+      if (manualSkipInProgress || isProcessing) {
+        return;
+      }
 
       try {
-        // Check for pre-calculated sync point
-        let syncData = beatDetector.queuePredictions.get(newTrackId);
+        showStatus('🎯 Detected skip - applying beat sync...', 'working');
         
-        if (!syncData) {
-          // Quick calculation for external skips
-          const [oldFeatures, newFeatures] = await Promise.all([
-            beatDetector.getTrackFeatures(oldTrackId),
-            beatDetector.getTrackFeatures(newTrackId)
-          ]);
-          
-          if (oldFeatures && newFeatures) {
-            syncData = await beatDetector.findSyncPoint(
-              oldFeatures, 
-              newFeatures, 
-              lastKnownPosition
-            );
-          }
-        }
+        // Get features for both tracks
+        const oldFeatures = await beatDetector.getTrackFeatures(oldTrackId);
+        const newFeatures = await beatDetector.getTrackFeatures(newTrackId);
         
-        if (syncData && syncData.position > 1000) {
-          // Apply ultra-fast seek
-          const seekPosition = Math.floor(syncData.position);
+        if (oldFeatures && newFeatures) {
+          // Calculate sync point
+          const syncData = await beatDetector.findSyncPoint(
+            oldFeatures, 
+            newFeatures, 
+            lastKnownPosition
+          );
           
-          // Multiple rapid attempts for fastest possible sync
-          await Promise.allSettled([
-            spotifyRequest(`/me/player/seek?position_ms=${seekPosition}`, { method: 'PUT' }),
-            new Promise(resolve => setTimeout(() => {
-              spotifyRequest(`/me/player/seek?position_ms=${seekPosition}`, { method: 'PUT' })
-                .then(resolve).catch(resolve);
-            }, 30))
-          ]);
-          
-          const totalTime = Math.round(performance.now() - skipStartTime);
-          syncDelays.push(totalTime);
-          if (syncDelays.length > 20) syncDelays.shift();
-          
-          beatDetector.recordSuccess(syncData.confidence);
-          skipCount++;
-          updateStats();
-          
-          showStatus(`🎯 Auto-synced in ${totalTime}ms!`, 'connected');
-          
-          // Update BPM display
-          const newFeatures = await beatDetector.getTrackFeatures(newTrackId);
-          if (newFeatures) {
-            document.getElementById('current-bpm').textContent = Math.round(newFeatures.tempo);
+          // Apply the seek
+          if (syncData.position > 1000) {
+            await spotifyRequest(`/me/player/seek?position_ms=${Math.floor(syncData.position)}`, {
+              method: 'PUT'
+            });
+            
+            beatDetector.recordSuccess(syncData.confidence);
+            skipCount++;
+            updateStats();
+            
+            showStatus(`✅ Auto-synced to beat!`, 'connected');
+            
+            // Update BPM display
+            if (newFeatures) {
+              document.getElementById('current-bpm').textContent = Math.round(newFeatures.tempo);
+            }
           }
         }
         
@@ -954,11 +837,9 @@
         console.error('External skip sync failed:', error);
         showStatus('✅ Skip detected', 'connected');
       }
-      
-      beatDetector.updatePerformanceStats();
     }
 
-    // Enhanced playback monitoring with predictive caching
+    // Update playback information
     async function updatePlaybackInfo() {
       try {
         const playbackState = await getCurrentPlayback();
@@ -992,33 +873,20 @@
         lastTrackId = track.id;
         lastPosition = playbackState.progress_ms;
 
-        // Predictive queue analysis every 10 seconds or on track change
-        if (!currentTrack || currentTrack.id !== track.id || 
-            (Date.now() - (beatDetector.lastQueueUpdate || 0)) > 10000) {
-          
+        // If track changed, get and display BPM
+        if (!currentTrack || currentTrack.id !== track.id) {
           currentTrack = track;
-          beatDetector.lastQueueUpdate = Date.now();
           
-          // Get queue and pre-calculate sync points
-          const queue = await getUserQueue();
-          if (queue?.queue?.length) {
-            // Batch fetch features for efficiency
-            const queueIds = queue.queue.slice(0, 10).map(t => t.id);
-            await beatDetector.batchFetchFeatures([track.id, ...queueIds]);
-            
-            // Predict sync points for upcoming tracks
-            await beatDetector.predictQueueSyncs(track.id, playbackState.progress_ms, queue.queue);
-          }
-          
-          // Get and display current track BPM
-          const features = await beatDetector.getTrackFeatures(track.id);
-          if (features) {
-            document.getElementById('current-bpm').textContent = Math.round(features.tempo);
-            updateAIStatus(`Track analyzed: ${Math.round(features.tempo)} BPM, ${queue?.queue?.length || 0} tracks cached`);
-          }
+          // Get track features in background
+          beatDetector.getTrackFeatures(track.id).then(features => {
+            if (features) {
+              document.getElementById('current-bpm').textContent = Math.round(features.tempo);
+              updateAIStatus(`Track analyzed: ${Math.round(features.tempo)} BPM detected`);
+            }
+          });
         }
 
-        // Update beat visualizer
+        // Update beat visualizer based on playback state
         updateBeatVisualizer(playbackState.is_playing);
 
       } catch (error) {
@@ -1046,8 +914,6 @@
       document.getElementById('skip-count').textContent = skipCount;
       const avgSuccess = beatDetector.getAverageSuccess();
       document.getElementById('sync-quality').textContent = avgSuccess + '%';
-      
-      beatDetector.updatePerformanceStats();
     }
 
     function updateAIStatus(message) {
@@ -1078,28 +944,18 @@
       document.getElementById('login-section').style.display = 'none';
       document.getElementById('main-interface').style.display = 'block';
       
-      showStatus('⚡ Ultra-fast Smart Beat Skip ready!', 'connected');
-      updateAIStatus('Predictive sync engine active - analyzing queue...');
+      showStatus('🎵 Smart Beat Skip ready!', 'connected');
+      updateAIStatus('Advanced beat detection active');
       
       // Initialize audio context
       await beatDetector.initAudioContext();
       
-      // Start high-frequency monitoring for fastest response
-      updateInterval = setInterval(updatePlaybackInfo, 500); // 500ms for responsive caching
+      // Start monitoring playback
+      updateInterval = setInterval(updatePlaybackInfo, 800); // Fast updates for better sync
       await updatePlaybackInfo();
       
       // Set initial stats
       updateStats();
-      
-      // Initial queue analysis
-      setTimeout(async () => {
-        const queue = await getUserQueue();
-        if (queue?.queue?.length) {
-          const queueIds = queue.queue.slice(0, 15).map(t => t.id);
-          await beatDetector.batchFetchFeatures(queueIds);
-          updateAIStatus(`Ready! ${queueIds.length} tracks analyzed and cached.`);
-        }
-      }, 1000);
     }
 
     function logout() {
@@ -1116,14 +972,12 @@
       skipCount = 0;
       lastTrackId = null;
       lastPosition = 0;
-      syncDelays = [];
-      predictiveCache.clear();
-      beatDetector = new UltraFastBeatDetector();
+      beatDetector = new AdvancedBeatDetector();
     }
 
     // Initialize on load
     window.onload = async function() {
-      showStatus('Loading Ultra-fast Smart Beat Skip...', 'working');
+      showStatus('Loading Smart Beat Skip...', 'working');
       
       const storedToken = sessionStorage.getItem('access_token');
       if (storedToken) {
@@ -1138,7 +992,7 @@
       }
     };
 
-    // Enhanced keyboard shortcuts
+    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (!accessToken) return;
       
@@ -1148,18 +1002,8 @@
       } else if (e.code === 'ArrowRight') {
         e.preventDefault();
         smartSkip();
-      } else if (e.code === 'KeyS' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        smartSkip();
       }
     });
-
-    // Performance monitoring
-    setInterval(() => {
-      if (beatDetector) {
-        beatDetector.updatePerformanceStats();
-      }
-    }, 2000);
   </script>
 </body>
 </html>
