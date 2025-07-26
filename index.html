@@ -1726,4 +1726,714 @@
         const currentTimeMs = playbackState.progress_ms;
         
         if (!deckA.analysis) {
-          document.getElementById('transition-status').
+          document.getElementById('transition-status').textContent = 'Loading Beat Data...';
+          deckA.analysis = await beatSyncEngine.getBeatAnalysis(deckA.track.id);
+        }
+
+        const queue = await getUserQueue();
+        if (!queue || !queue.queue || queue.queue.length === 0) {
+          showError('No next track found in queue');
+          return;
+        }
+
+        const nextTrack = queue.queue[0];
+        
+        document.getElementById('transition-status').textContent = 'Analyzing Next Track...';
+        const nextAnalysis = await beatSyncEngine.getBeatAnalysis(nextTrack.id);
+
+        if (!deckA.analysis || !nextAnalysis) {
+          showError('Could not analyze beat patterns. Using standard skip.');
+          await spotifyRequest('/me/player/next', { method: 'POST' });
+          return;
+        }
+
+        const currentBeatInfo = beatSyncEngine.getCurrentBeat(deckA.analysis, currentTimeMs);
+        
+        const syncPreferences = {
+          matchDownbeats: djMode === 'party' || djMode === 'workout',
+          matchSections: djMode === 'chill' || djMode === 'focus'
+        };
+        
+        const syncPoint = beatSyncEngine.findSyncPoint(
+          deckA.analysis, 
+          nextAnalysis, 
+          currentBeatInfo.beat, 
+          syncPreferences
+        );
+
+        document.getElementById('current-beat-a').textContent = currentBeatInfo.beat;
+        updateSyncConfidence('a', currentBeatInfo.confidence * 100);
+        document.getElementById('target-beat-b').textContent = syncPoint.syncBeat;
+        updateSyncConfidence('b', syncPoint.confidence);
+
+        document.getElementById('transition-status').textContent = 'Syncing...';
+        await performBeatSyncTransition(syncPoint, nextTrack);
+
+        performanceStats.transitionCount++;
+        performanceStats.syncAccuracy = Math.min(100, performanceStats.syncAccuracy + (syncPoint.confidence > 80 ? 1 : -0.5));
+        updatePerformanceStats();
+
+        deckB.track = nextTrack;
+        deckB.analysis = nextAnalysis;
+        deckB.targetBeat = syncPoint.syncBeat;
+
+        showSuccess(`🎯 Beat sync complete! Confidence: ${Math.round(syncPoint.confidence)}%`);
+
+      } catch (error) {
+        showError('Beat sync skip failed: ' + error.message);
+      } finally {
+        transitionInProgress = false;
+        document.getElementById('transition-status').textContent = 'Ready';
+        document.getElementById('beat-skip-btn').disabled = false;
+      }
+    }
+
+    async function performBeatSyncTransition(syncPoint, nextTrack) {
+      await spotifyRequest('/me/player/next', { method: 'POST' });
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      if (syncPoint.seekTime > 1000) {
+        await spotifyRequest('/me/player/seek', {
+          method: 'PUT',
+          body: JSON.stringify({
+            position_ms: Math.floor(syncPoint.seekTime)
+          })
+        });
+
+        showInfo(`🎵 Synced to beat ${syncPoint.syncBeat} at ${formatTime(syncPoint.seekTime)}`);
+      }
+
+      updateBeatGridVisualization(syncPoint);
+    }
+
+    async function autoMix() {
+      if (transitionInProgress) return;
+      
+      showInfo('🤖 Auto Beat-Sync Mode Activated');
+      setTimeout(beatSyncSkip, 15000);
+    }
+
+    async function seekToPosition(event, deck) {
+      const rect = event.target.getBoundingClientRect();
+      const clickX = event.clientX - rect.left;
+      const percentage = clickX / rect.width;
+      
+      if (deck === 'a' && deckA.track) {
+        const newPosition = Math.floor(deckA.track.duration_ms * percentage);
+        try {
+          await spotifyRequest('/me/player/seek', {
+            method: 'PUT',
+            body: JSON.stringify({ position_ms: newPosition })
+          });
+          showInfo(`Seeking to: ${formatTime(newPosition)}`);
+        } catch (error) {
+          showError('Seek failed: ' + error.message);
+        }
+      }
+    }
+
+    // UI UPDATE FUNCTIONS
+    function updateSyncConfidence(deck, confidence) {
+      const badge = document.getElementById(`sync-confidence-${deck}-badge`);
+      if (!badge) return;
+      
+      const rounded = Math.round(confidence);
+      badge.textContent = `${rounded}%`;
+      
+      badge.className = 'sync-confidence';
+      if (rounded >= 80) {
+        badge.classList.add('high');
+      } else if (rounded >= 60) {
+        badge.classList.add('medium');
+      } else {
+        badge.classList.add('low');
+      }
+    }
+
+    function updateDeckStatus(deck, status) {
+      const statusElement = document.getElementById(`deck-status-${deck}`);
+      if (!statusElement) return;
+      
+      statusElement.className = 'deck-status';
+      if (status === 'playing') {
+        statusElement.classList.add('playing');
+      } else if (status === 'loading') {
+        statusElement.classList.add('loading');
+      }
+    }
+
+    function updateBeatGridVisualization(syncPoint) {
+      const beatGridA = document.getElementById('beat-grid-a');
+      if (beatGridA) {
+        const dots = beatGridA.querySelectorAll('.beat-dot');
+        dots.forEach((dot, index) => {
+          dot.classList.remove('active', 'sync-target');
+          if (index === (deckA.currentBeat % 8)) {
+            dot.classList.add('active');
+          }
+        });
+      }
+
+      const beatGridB = document.getElementById('beat-grid-b');
+      if (beatGridB) {
+        const dots = beatGridB.querySelectorAll('.beat-dot');
+        dots.forEach((dot, index) => {
+          dot.classList.remove('active', 'sync-target');
+          if (index === (syncPoint.syncBeat % 8)) {
+            dot.classList.add('sync-target');
+          }
+        });
+      }
+    }
+
+    function updateBeatMarkers(deck, analysis) {
+      if (!analysis || !analysis.beats) return;
+
+      const deckLetter = deck === 'A' ? 'a' : 'b';
+      const beatMarkers = document.getElementById(`beat-markers-${deckLetter}`);
+      if (!beatMarkers) return;
+
+      beatMarkers.innerHTML = '';
+      const trackDuration = analysis.totalDuration || 180000;
+
+      analysis.beats.forEach((beat, index) => {
+        const marker = document.createElement('div');
+        marker.className = beat.isDownbeat ? 'beat-marker downbeat' : 'beat-marker';
+        marker.style.left = `${(beat.start / trackDuration) * 100}%`;
+        
+        if (deck === 'B' && deckB.syncPoints) {
+          const syncPoint = deckB.syncPoints.find(sp => sp.targetBeat === index);
+          if (syncPoint && syncPoint.isRecommended) {
+            marker.classList.add('sync-point');
+          }
+        }
+        
+        beatMarkers.appendChild(marker);
+      });
+    }
+
+    async function updatePlaybackInfo() {
+      try {
+        const newPlaybackState = await getCurrentPlayback();
+        if (!newPlaybackState || !newPlaybackState.item) {
+          document.getElementById('track-name-a').textContent = 'No Track Playing';
+          document.getElementById('track-artist-a').textContent = 'Start playing music in Spotify';
+          updateDeckStatus('a', '');
+          return;
+        }
+
+        playbackState = newPlaybackState;
+        const track = newPlaybackState.item;
+
+        document.getElementById('play-btn').innerHTML = playbackState.is_playing ? '⏸️' : '▶️';
+        updateDeckStatus('a', playbackState.is_playing ? 'playing' : 'paused');
+
+        if (!deckA.track || deckA.track.id !== track.id) {
+          await loadNewTrack(track);
+        }
+
+        if (deckA.analysis && playbackState.is_playing) {
+          const currentBeatInfo = beatSyncEngine.getCurrentBeat(deckA.analysis, playbackState.progress_ms);
+          deckA.currentBeat = currentBeatInfo.beat;
+          
+          updateBeatGridDisplay('a', currentBeatInfo.beat);
+          updateSyncConfidence('a', currentBeatInfo.confidence * 100);
+        }
+
+        updatePlayhead('a', playbackState.progress_ms, track.duration_ms);
+        updateTimeDisplay('a', playbackState.progress_ms, track.duration_ms);
+        updateTransitionTimeline();
+
+      } catch (error) {
+        console.error('Failed to update playback info:', error);
+      }
+    }
+
+    async function loadNewTrack(track) {
+      updateDeckStatus('a', 'loading');
+      deckA.track = track;
+      
+      const [features, analysis] = await Promise.all([
+        getAudioFeatures(track.id),
+        beatSyncEngine ? beatSyncEngine.getBeatAnalysis(track.id) : null
+      ]);
+      
+      if (features) {
+        deckA.features = features;
+        updateTrackDisplay('A', track, features);
+      }
+
+      if (analysis) {
+        deckA.analysis = analysis;
+        updateBeatMarkers('A', analysis);
+        await prepareNextTrack();
+        updateAIRecommendations();
+      }
+      
+      updateDeckStatus('a', playbackState && playbackState.is_playing ? 'playing' : 'paused');
+    }
+
+    async function prepareNextTrack() {
+      try {
+        updateDeckStatus('b', 'loading');
+        const queue = await getUserQueue();
+        if (!queue || !queue.queue || queue.queue.length === 0) return;
+
+        const nextTrack = queue.queue[0];
+        const [nextFeatures, nextAnalysis] = await Promise.all([
+          getAudioFeatures(nextTrack.id),
+          beatSyncEngine ? beatSyncEngine.getBeatAnalysis(nextTrack.id) : null
+        ]);
+
+        if (nextFeatures && nextAnalysis) {
+          deckB.track = nextTrack;
+          deckB.features = nextFeatures;
+          deckB.analysis = nextAnalysis;
+          
+          deckB.syncPoints = beatSyncEngine.precalculateSyncPoints(deckA.analysis, nextAnalysis);
+          
+          updateTrackDisplay('B', nextTrack, nextFeatures);
+          updateBeatMarkers('B', nextAnalysis);
+          updateIntelligentQueue();
+        }
+        
+        updateDeckStatus('b', '');
+      } catch (error) {
+        console.error('Failed to prepare next track:', error);
+        updateDeckStatus('b', '');
+      }
+    }
+
+    function updateBeatGridDisplay(deck, currentBeat) {
+      const deckLetter = deck.toLowerCase();
+      const beatGrid = document.getElementById(`beat-grid-${deckLetter}`);
+      if (!beatGrid) return;
+
+      const dots = beatGrid.querySelectorAll('.beat-dot');
+      dots.forEach((dot, index) => {
+        dot.classList.remove('active');
+        if (index === (currentBeat % 8)) {
+          dot.classList.add('active');
+        }
+      });
+
+      document.getElementById(`current-beat-${deckLetter}`).textContent = currentBeat;
+    }
+
+    function updateAIRecommendations() {
+      if (!deckA.analysis || !deckB.analysis || !beatSyncEngine) {
+        document.getElementById('ai-recommendations').innerHTML = 
+          '<div class="recommendation-item">Loading beat analysis...</div>';
+        return;
+      }
+
+      const recommendations = [];
+      const syncQuality = calculateOverallSyncQuality();
+
+      const scoreElement = document.getElementById('ai-score');
+      scoreElement.textContent = `${Math.round(syncQuality)}%`;
+      
+      if (syncQuality > 85) {
+        scoreElement.style.color = '#1db954';
+        recommendations.push({ text: '🎯 Excellent beat alignment detected', priority: 'high' });
+      } else if (syncQuality > 70) {
+        scoreElement.style.color = '#ffaa44';
+        recommendations.push({ text: '✨ Good sync potential found', priority: 'medium' });
+      } else if (syncQuality > 50) {
+        scoreElement.style.color = '#ff6b35';
+        recommendations.push({ text: '⚠️ Moderate sync quality - timing critical', priority: 'medium' });
+      } else {
+        scoreElement.style.color = '#ff4444';
+        recommendations.push({ text: '🔧 Challenging sync - manual timing recommended', priority: 'low' });
+      }
+
+      const tempoDiff = Math.abs(deckA.analysis.averageTempo - deckB.analysis.averageTempo);
+      if (tempoDiff < 5) {
+        recommendations.push({ text: '🥁 Perfect tempo match - seamless transition possible', priority: 'high' });
+      } else if (tempoDiff < 15) {
+        recommendations.push({ text: `🎵 Close tempo (±${tempoDiff.toFixed(1)} BPM) - good sync window`, priority: 'medium' });
+      } else {
+        recommendations.push({ text: `⚡ Large tempo gap (${tempoDiff.toFixed(1)} BPM) - extended sync needed`, priority: 'low' });
+      }
+
+      const hasGoodDownbeats = deckB.syncPoints && deckB.syncPoints.some(sp => sp.isRecommended);
+      if (hasGoodDownbeats) {
+        recommendations.push({ text: '🎪 Strong downbeat sync points available', priority: 'high' });
+      }
+
+      const recommendationsElement = document.getElementById('ai-recommendations');
+      recommendationsElement.innerHTML = recommendations
+        .slice(0, 3)
+        .map(rec => `<div class="recommendation-item ${rec.priority}">• ${rec.text}</div>`)
+        .join('');
+    }
+
+    function calculateOverallSyncQuality() {
+      if (!deckA.analysis || !deckB.analysis) return 0;
+
+      let quality = 50;
+
+      const tempoDiff = Math.abs(deckA.analysis.averageTempo - deckB.analysis.averageTempo);
+      const tempoScore = Math.max(0, 100 - (tempoDiff * 2));
+      quality += (tempoScore - 50) * 0.3;
+
+      if (deckB.syncPoints) {
+        const goodSyncPoints = deckB.syncPoints.filter(sp => sp.confidence > 75).length;
+        const syncScore = Math.min(100, (goodSyncPoints / deckB.syncPoints.length) * 100);
+        quality += (syncScore - 50) * 0.4;
+      }
+
+      if (deckA.features && deckB.features) {
+        const energyDiff = Math.abs(deckA.features.energy - deckB.features.energy);
+        const danceabilityDiff = Math.abs(deckA.features.danceability - deckB.features.danceability);
+        const featuresScore = 100 - ((energyDiff + danceabilityDiff) * 50);
+        quality += (featuresScore - 50) * 0.3;
+      }
+
+      return Math.max(0, Math.min(100, quality));
+    }
+
+    function updateTrackDisplay(deck, track, features) {
+      const deckLetter = deck === 'A' ? 'a' : 'b';
+      
+      document.getElementById(`track-name-${deckLetter}`).textContent = track.name;
+      document.getElementById(`track-artist-${deckLetter}`).textContent = 
+        track.artists.map(a => a.name).join(', ');
+      document.getElementById(`total-time-${deckLetter}`).textContent = formatTime(track.duration_ms);
+      
+      if (features) {
+        updateAudioFeatures(deckLetter, features);
+      }
+    }
+
+    function updateAudioFeatures(deck, features) {
+      const elements = {
+        energy: document.getElementById(`energy-${deck}`),
+        valence: document.getElementById(`valence-${deck}`),
+        dance: document.getElementById(`dance-${deck}`),
+        key: document.getElementById(`key-${deck}`),
+        tempo: document.getElementById(`tempo-${deck}`),
+        speech: document.getElementById(`speech-${deck}`),
+        acoustic: document.getElementById(`acoustic-${deck}`)
+      };
+      
+      if (elements.energy) elements.energy.textContent = `${Math.round(features.energy * 100)}%`;
+      if (elements.valence) elements.valence.textContent = `${Math.round(features.valence * 100)}%`;
+      if (elements.dance) elements.dance.textContent = `${Math.round(features.danceability * 100)}%`;
+      if (elements.key) elements.key.textContent = getKeyName(features.key);
+      if (elements.tempo) elements.tempo.textContent = `${Math.round(features.tempo)} BPM`;
+      if (elements.speech) elements.speech.textContent = `${Math.round(features.speechiness * 100)}%`;
+      if (elements.acoustic) elements.acoustic.textContent = `${Math.round(features.acousticness * 100)}%`;
+      
+      const featureBars = document.querySelectorAll(`#features-${deck} .feature-fill`);
+      if (featureBars.length >= 3) {
+        featureBars[0].style.width = `${features.energy * 100}%`;
+        featureBars[1].style.width = `${features.valence * 100}%`;
+        featureBars[2].style.width = `${features.danceability * 100}%`;
+      }
+    }
+
+    function updatePlayhead(deck, progress, duration) {
+      const deckLetter = deck === 'A' ? 'a' : 'b';
+      const playhead = document.getElementById(`playhead-${deckLetter}`);
+      
+      if (playhead && duration > 0) {
+        const percentage = (progress / duration) * 100;
+        playhead.style.left = `${Math.min(100, Math.max(0, percentage))}%`;
+      }
+    }
+
+    function updateTimeDisplay(deck, progress, duration) {
+      document.getElementById(`current-time-${deck}`).textContent = formatTime(progress);
+      document.getElementById(`total-time-${deck}`).textContent = formatTime(duration);
+    }
+
+    function updateTransitionTimeline() {
+      if (!playbackState || !deckA.track) return;
+      
+      const progress = playbackState.progress_ms;
+      const duration = deckA.track.duration_ms;
+      const percentage = (progress / duration) * 100;
+      
+      document.getElementById('transition-progress').style.width = `${percentage}%`;
+      
+      if (deckB.syncPoints && deckB.syncPoints.length > 0) {
+        const currentBeatProgress = deckA.currentBeat / (deckA.analysis?.beats.length || 1);
+        const optimalPoint = 70 + (currentBeatProgress * 20);
+        document.getElementById('transition-marker').style.left = `${optimalPoint}%`;
+      }
+    }
+
+    async function updateIntelligentQueue() {
+      try {
+        const queue = await getUserQueue();
+        if (!queue || !queue.queue) return;
+        
+        const queueList = document.getElementById('queue-list');
+        if (!queueList) return;
+        
+        queueList.innerHTML = '';
+        
+        for (let i = 0; i < Math.min(5, queue.queue.length); i++) {
+          const track = queue.queue[i];
+          const features = await getAudioFeatures(track.id);
+          
+          let compatibility = 'good';
+          let score = 75;
+          
+          if (features && deckA.features) {
+            const energyDiff = Math.abs(deckA.features.energy - features.energy);
+            const tempoDiff = Math.abs(deckA.features.tempo - features.tempo);
+            const danceabilityDiff = Math.abs(deckA.features.danceability - features.danceability);
+            
+            score = 100 - ((energyDiff + (tempoDiff/100) + danceabilityDiff) * 33);
+            
+            if (score > 80) compatibility = 'optimal';
+            else if (score > 60) compatibility = 'good';
+            else compatibility = 'challenging';
+          }
+          
+          const queueItem = document.createElement('div');
+          queueItem.className = `queue-item ${compatibility}`;
+          queueItem.innerHTML = `
+            <div class="queue-item-info">
+              <div class="queue-item-name">${track.name}</div>
+              <div class="queue-item-artist">${track.artists[0].name}</div>
+            </div>
+            <div class="queue-item-score">${Math.round(score)}%</div>
+          `;
+          
+          queueList.appendChild(queueItem);
+        }
+        
+      } catch (error) {
+        console.error('Failed to update intelligent queue:', error);
+      }
+    }
+
+    function updatePerformanceStats() {
+      document.getElementById('sync-accuracy').textContent = `${Math.round(performanceStats.syncAccuracy)}%`;
+      document.getElementById('transition-count').textContent = performanceStats.transitionCount;
+      document.getElementById('learning-progress').textContent = 
+        performanceStats.learningActive ? 'Active' : 'Paused';
+    }
+
+    // DJ MODE AND CONTROL FUNCTIONS
+    function setDJMode(mode) {
+      djMode = mode;
+      
+      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      showInfo(`🎯 DJ Mode: ${mode.toUpperCase()}`);
+    }
+
+    function updateCrossfader() {
+      const crossfader = document.getElementById('crossfader');
+      const value = parseInt(crossfader.value);
+      
+      if (audioContext && deckA.gainNode && deckB.gainNode) {
+        const deckAGain = Math.cos((value / 100) * Math.PI / 2);
+        const deckBGain = Math.sin((value / 100) * Math.PI / 2);
+        
+        deckA.gainNode.gain.setValueAtTime(deckAGain, audioContext.currentTime);
+        deckB.gainNode.gain.setValueAtTime(deckBGain, audioContext.currentTime);
+      }
+    }
+
+    function updateVolume(deck) {
+      const volumeSlider = document.getElementById(`volume-${deck.toLowerCase()}`);
+      const volume = parseInt(volumeSlider.value);
+      
+      if (deck === 'A' && deckA.gainNode) {
+        deckA.gainNode.gain.setValueAtTime(volume / 100, audioContext.currentTime);
+      } else if (deck === 'B' && deckB.gainNode) {
+        deckB.gainNode.gain.setValueAtTime(volume / 100, audioContext.currentTime);
+      }
+    }
+
+    // UTILITY FUNCTIONS
+    function getKeyName(key) {
+      const keys = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+      return keys[key] || 'Unknown';
+    }
+
+    function formatTime(ms) {
+      const minutes = Math.floor(ms / 60000);
+      const seconds = Math.floor((ms % 60000) / 1000);
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // STATUS AND LOADING FUNCTIONS
+    function showError(message, details = null) {
+      console.error('❌ Error:', message, details);
+      const status = document.getElementById('status');
+      status.innerHTML = `❌ ${message}`;
+      status.className = 'status disconnected';
+      
+      const errorDiv = document.getElementById('error-message');
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+      setTimeout(() => errorDiv.style.display = 'none', 5000);
+    }
+
+    function showSuccess(message) {
+      const status = document.getElementById('status');
+      status.innerHTML = `✅ ${message}`;
+      status.className = 'status connected';
+    }
+
+    function showInfo(message, details = '') {
+      const status = document.getElementById('status');
+      status.innerHTML = `<span class="spinner"></span>ℹ️ ${message}`;
+      status.className = 'status loading';
+    }
+
+    function showLoading(message, details = '') {
+      const overlay = document.getElementById('loading-overlay');
+      document.getElementById('loading-text').textContent = message;
+      document.getElementById('loading-details').textContent = details;
+      overlay.classList.add('active');
+    }
+
+    function hideLoading() {
+      const overlay = document.getElementById('loading-overlay');
+      overlay.classList.remove('active');
+    }
+
+    // INITIALIZATION FUNCTIONS
+    async function initializeAudioContext() {
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        deckA.gainNode = audioContext.createGain();
+        deckB.gainNode = audioContext.createGain();
+        
+        deckA.gainNode.connect(audioContext.destination);
+        deckB.gainNode.connect(audioContext.destination);
+        
+        deckA.gainNode.gain.value = 0.7;
+        deckB.gainNode.gain.value = 0.3;
+        
+        console.log('✅ Web Audio API initialized');
+        return true;
+      } catch (error) {
+        console.error('❌ Web Audio API initialization failed:', error);
+        return false;
+      }
+    }
+
+    async function initializeDJ() {
+      try {
+        showInfo('🚀 Initializing Beat-Synchronized DJ System...');
+        
+        document.getElementById('login-section').style.display = 'none';
+        document.getElementById('dj-interface').style.display = 'grid';
+        document.getElementById('logout-btn').style.display = 'inline-block';
+        
+        const audioInitialized = await initializeAudioContext();
+        if (!audioInitialized) {
+          showError('Web Audio API initialization failed. Some features may not work.');
+        }
+        
+        beatSyncEngine = new BeatSyncEngine();
+        setupEventListeners();
+        updateInterval = setInterval(updatePlaybackInfo, 1000);
+        await updatePlaybackInfo();
+        updatePerformanceStats();
+        
+        showSuccess('🎉 Beat Sync Engine Online! Start playing music to begin.');
+        
+      } catch (error) {
+        showError('Failed to initialize DJ system: ' + error.message);
+      }
+    }
+
+    function setupEventListeners() {
+      document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        
+        switch(e.key) {
+          case ' ':
+            e.preventDefault();
+            togglePlayPause();
+            break;
+          case 'ArrowRight':
+            e.preventDefault();
+            beatSyncSkip();
+            break;
+          case 'ArrowLeft':
+            e.preventDefault();
+            skipToPrevious();
+            break;
+          case 'a':
+            e.preventDefault();
+            autoMix();
+            break;
+        }
+      });
+    }
+
+    function logout() {
+      if (updateInterval) clearInterval(updateInterval);
+      
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+      
+      accessToken = null;
+      sessionStorage.clear();
+      
+      document.getElementById('login-section').style.display = 'block';
+      document.getElementById('dj-interface').style.display = 'none';
+      document.getElementById('logout-btn').style.display = 'none';
+      document.getElementById('status').innerHTML = 'Not Connected';
+      document.getElementById('status').className = 'status disconnected';
+      
+      // Reset global state
+      deckA = { track: null, features: null, analysis: null, gainNode: null, bufferSource: null, isPlaying: false, currentBeat: 0, beatTiming: [], syncPoints: [] };
+      deckB = { track: null, features: null, analysis: null, gainNode: null, bufferSource: null, isPlaying: false, targetBeat: 0, beatTiming: [], syncPoints: [] };
+      currentDeck = 'A';
+      playbackState = null;
+      beatSyncEngine = null;
+      transitionInProgress = false;
+      performanceStats = { syncAccuracy: 98, transitionCount: 0, learningActive: true };
+      
+      console.log('🚪 Logged out successfully');
+    }
+
+    // ERROR HANDLING
+    window.addEventListener('error', (e) => {
+      console.error('Global error caught:', e.error);
+      showError('An unexpected error occurred. Please refresh if issues persist.');
+    });
+
+    window.addEventListener('unhandledrejection', (e) => {
+      console.error('Unhandled promise rejection:', e.reason);
+      showError('A background process failed. Please refresh if issues persist.');
+    });
+
+    // MAIN INITIALIZATION
+    window.onload = async function() {
+      try {
+        showInfo('🎵 Loading Beat-Synchronized Spotify AI DJ...');
+        
+        const storedToken = sessionStorage.getItem('access_token');
+        const expires = sessionStorage.getItem('token_expires');
+        
+        if (storedToken && expires && Date.now() < parseInt(expires)) {
+          accessToken = storedToken;
+          showSuccess('🔄 Restoring previous session...');
+          await initializeDJ();
+        } else {
+          await handleRedirect();
+        }
+        
+      } catch (error) {
+        showError('Initialization failed: ' + error.message);
+      }
+    };
+  </script>
+</body>
+</html>
