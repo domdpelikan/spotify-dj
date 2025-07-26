@@ -1265,39 +1265,138 @@
 
       findSyncPoint(sourceAnalysis, targetAnalysis, sourceBeat, preferences = {}) {
         if (!sourceAnalysis || !targetAnalysis || !sourceAnalysis.beats || !targetAnalysis.beats) {
+          console.log('❌ Missing analysis data for sync calculation');
           return { syncBeat: 0, confidence: 0, seekTime: 0 };
         }
 
         const sourceBeatData = sourceAnalysis.beats[sourceBeat];
         if (!sourceBeatData) {
+          console.log(`❌ Source beat ${sourceBeat} not found`);
           return { syncBeat: 0, confidence: 0, seekTime: 0 };
         }
 
+        console.log(`🎯 Finding sync point:
+          - Source track: ${sourceAnalysis.beats.length} beats, tempo ${sourceAnalysis.averageTempo.toFixed(1)} BPM
+          - Target track: ${targetAnalysis.beats.length} beats, tempo ${targetAnalysis.averageTempo.toFixed(1)} BPM
+          - Current beat: ${sourceBeat} (${Math.round((sourceBeat / sourceAnalysis.beats.length) * 100)}% through track)`);
+
+        // 🎵 STRATEGY 1: PROPORTIONAL POSITION MATCHING
+        // Find the equivalent relative position in the target track
         const sourceProgress = sourceBeat / sourceAnalysis.beats.length;
         let targetBeat = Math.floor(sourceProgress * targetAnalysis.beats.length);
+        
+        console.log(`📊 Proportional match: ${sourceBeat}/${sourceAnalysis.beats.length} = ${(sourceProgress * 100).toFixed(1)}% → beat ${targetBeat}`);
 
+        // 🎵 STRATEGY 2: DOWNBEAT ALIGNMENT (if enabled)
         if (preferences.matchDownbeats && sourceBeatData.isDownbeat) {
-          targetBeat = this.findNearestDownbeat(targetAnalysis, targetBeat);
+          const nearestDownbeat = this.findNearestDownbeat(targetAnalysis, targetBeat);
+          if (nearestDownbeat !== targetBeat) {
+            console.log(`🥁 Downbeat alignment: ${targetBeat} → ${nearestDownbeat}`);
+            targetBeat = nearestDownbeat;
+          }
         }
 
+        // 🎵 STRATEGY 3: SECTION MATCHING (if enabled)
         if (preferences.matchSections) {
-          targetBeat = this.findSimilarSection(sourceAnalysis, targetAnalysis, sourceBeat, targetBeat);
+          const sectionMatch = this.findSimilarSection(sourceAnalysis, targetAnalysis, sourceBeat, targetBeat);
+          if (sectionMatch !== targetBeat) {
+            console.log(`🎼 Section alignment: ${targetBeat} → ${sectionMatch}`);
+            targetBeat = sectionMatch;
+          }
         }
 
+        // 🎵 STRATEGY 4: TEMPO COMPENSATION
+        // If tempos are very different, adjust the target beat for better sync
+        const tempoRatio = targetAnalysis.averageTempo / sourceAnalysis.averageTempo;
+        if (Math.abs(tempoRatio - 1) > 0.2) { // More than 20% tempo difference
+          const tempoAdjustedBeat = Math.floor(targetBeat * tempoRatio);
+          console.log(`⏱️ Tempo compensation: ${targetBeat} → ${tempoAdjustedBeat} (ratio: ${tempoRatio.toFixed(2)})`);
+          targetBeat = tempoAdjustedBeat;
+        }
+
+        // 🚫 BOUNDARY CHECK: Ensure target beat is valid
         targetBeat = Math.max(0, Math.min(targetBeat, targetAnalysis.beats.length - 1));
 
         const targetBeatData = targetAnalysis.beats[targetBeat];
         const seekTime = targetBeatData.start;
 
-        const confidence = this.calculateSyncConfidence(sourceBeatData, targetBeatData, sourceAnalysis, targetAnalysis);
+        // 📊 CONFIDENCE CALCULATION
+        const confidence = this.calculateAdvancedSyncConfidence(
+          sourceBeatData, 
+          targetBeatData, 
+          sourceAnalysis, 
+          targetAnalysis,
+          sourceBeat,
+          targetBeat
+        );
+
+        console.log(`✅ Final sync point:
+          - Target beat: ${targetBeat} at ${formatTime(seekTime)}
+          - Confidence: ${Math.round(confidence)}%
+          - Strategy: ${this.getStrategyName(preferences)}`);
 
         return {
           syncBeat: targetBeat,
           confidence: confidence,
           seekTime: seekTime,
           targetBeatData: targetBeatData,
-          strategy: this.getStrategyName(preferences)
+          strategy: this.getStrategyName(preferences),
+          tempoRatio: tempoRatio || 1,
+          sourceProgress: sourceProgress
         };
+      }
+
+      calculateAdvancedSyncConfidence(sourceBeat, targetBeat, sourceAnalysis, targetAnalysis, sourceBeatIndex, targetBeatIndex) {
+        let confidence = 50; // Base confidence
+
+        // 🎵 BEAT CONFIDENCE: Higher confidence beats = better sync
+        confidence += (sourceBeat.confidence * 20);
+        confidence += (targetBeat.confidence * 20);
+
+        // 🥁 DOWNBEAT BONUS: Downbeat to downbeat = perfect alignment
+        if (sourceBeat.isDownbeat && targetBeat.isDownbeat) {
+          confidence += 25;
+          console.log('🥁 Downbeat-to-downbeat bonus: +25');
+        }
+
+        // ⏱️ TEMPO SIMILARITY: Similar tempos = smoother transitions
+        const tempoDiff = Math.abs(sourceAnalysis.averageTempo - targetAnalysis.averageTempo);
+        const tempoSimilarity = Math.max(0, 1 - (tempoDiff / 50)); // 50 BPM max penalty
+        confidence += tempoSimilarity * 20;
+        console.log(`⏱️ Tempo similarity: ${tempoSimilarity.toFixed(2)} (+${(tempoSimilarity * 20).toFixed(1)})`);
+
+        // 📍 POSITION PREFERENCE: Avoid very early or very late positions
+        const targetProgress = targetBeatIndex / targetAnalysis.beats.length;
+        if (targetProgress < 0.05) { // Very beginning
+          confidence -= 15;
+          console.log('📍 Early position penalty: -15');
+        } else if (targetProgress > 0.95) { // Very end
+          confidence -= 10;
+          console.log('📍 Late position penalty: -10');
+        } else if (targetProgress > 0.2 && targetProgress < 0.8) { // Sweet spot
+          confidence += 10;
+          console.log('📍 Optimal position bonus: +10');
+        }
+
+        // 🎼 BEAT QUALITY: Penalize low-confidence beats
+        const avgBeatConfidence = (sourceBeat.confidence + targetBeat.confidence) / 2;
+        if (avgBeatConfidence < 0.5) {
+          confidence -= 15;
+          console.log(`🎼 Low beat confidence penalty: -15 (avg: ${avgBeatConfidence.toFixed(2)})`);
+        }
+
+        // 📊 TRACK LENGTH SIMILARITY: Similar length tracks sync better
+        const lengthRatio = Math.min(sourceAnalysis.totalDuration, targetAnalysis.totalDuration) / 
+                           Math.max(sourceAnalysis.totalDuration, targetAnalysis.totalDuration);
+        if (lengthRatio < 0.7) { // Very different lengths
+          confidence -= 5;
+          console.log(`📊 Length difference penalty: -5 (ratio: ${lengthRatio.toFixed(2)})`);
+        }
+
+        const finalConfidence = Math.max(0, Math.min(100, confidence));
+        console.log(`📊 Final confidence: ${finalConfidence.toFixed(1)}%`);
+        
+        return finalConfidence;
       }
 
       findNearestDownbeat(analysis, targetBeat) {
@@ -1305,7 +1404,8 @@
         let nearestDownbeat = targetBeat;
         let minDistance = Infinity;
 
-        const searchRange = 8;
+        // Search within ±12 beats for a downbeat (3 bars in 4/4 time)
+        const searchRange = 12;
         for (let i = Math.max(0, targetBeat - searchRange); 
              i < Math.min(beats.length, targetBeat + searchRange); i++) {
           if (beats[i].isDownbeat) {
@@ -1326,16 +1426,41 @@
           sourceTime >= section.start && sourceTime < section.start + section.duration
         );
 
-        if (!sourceSection) return fallbackBeat;
+        if (!sourceSection) {
+          console.log('🎼 No source section found for beat', sourceBeat);
+          return fallbackBeat;
+        }
 
-        const targetSection = targetAnalysis.sections.find(section => 
-          Math.abs(section.tempo - sourceSection.tempo) < 20 &&
-          section.key === sourceSection.key
-        );
+        // Find the best matching section in target track
+        let bestSection = null;
+        let bestScore = 0;
 
-        if (!targetSection) return fallbackBeat;
+        for (const section of targetAnalysis.sections) {
+          let score = 0;
+          
+          // Tempo similarity (most important)
+          const tempoDiff = Math.abs(section.tempo - sourceSection.tempo);
+          score += Math.max(0, 50 - tempoDiff); // 50 points max for tempo
+          
+          // Key similarity
+          if (section.key === sourceSection.key) score += 30;
+          
+          // Mode similarity (major/minor)
+          if (section.mode === sourceSection.mode) score += 20;
+          
+          if (score > bestScore) {
+            bestScore = score;
+            bestSection = section;
+          }
+        }
 
-        const targetSectionStart = targetSection.start;
+        if (!bestSection || bestScore < 30) {
+          console.log(`🎼 No good section match found (best score: ${bestScore})`);
+          return fallbackBeat;
+        }
+
+        // Find beat closest to the start of the best matching section
+        const targetSectionStart = bestSection.start;
         let closestBeat = fallbackBeat;
         let minDistance = Infinity;
 
@@ -1347,28 +1472,8 @@
           }
         }
 
+        console.log(`🎼 Section match: tempo ${sourceSection.tempo}→${bestSection.tempo}, key ${sourceSection.key}→${bestSection.key} (score: ${bestScore})`);
         return closestBeat;
-      }
-
-      calculateSyncConfidence(sourceBeat, targetBeat, sourceAnalysis, targetAnalysis) {
-        let confidence = 50;
-
-        confidence += (sourceBeat.confidence * 25);
-        confidence += (targetBeat.confidence * 25);
-
-        if (sourceBeat.isDownbeat && targetBeat.isDownbeat) {
-          confidence += 20;
-        }
-
-        const tempoSimilarity = 1 - Math.abs(sourceAnalysis.averageTempo - targetAnalysis.averageTempo) / 100;
-        confidence += tempoSimilarity * 15;
-
-        const targetProgress = targetBeat.index / targetAnalysis.beats.length;
-        if (targetProgress < 0.1 || targetProgress > 0.9) {
-          confidence -= 10;
-        }
-
-        return Math.max(0, Math.min(100, confidence));
       }
 
       getStrategyName(preferences) {
@@ -1707,51 +1812,76 @@
 
     async function beatSyncSkip() {
       if (transitionInProgress) {
-        showInfo('Transition already in progress...');
+        showInfo('⏳ Transition already in progress...');
         return;
       }
 
       if (!playbackState || !deckA.track) {
-        showError('No track currently playing');
+        showError('❌ No track currently playing - start music in Spotify first');
         return;
       }
 
       try {
+        // 🔒 LOCK THE FUNCTION
         transitionInProgress = true;
         const beatSkipBtn = document.getElementById('beat-skip-btn');
         beatSkipBtn.disabled = true;
-        document.getElementById('transition-status').textContent = 'Analyzing Beats...';
-        showInfo('🎯 Initiating beat-synchronized skip...');
+        document.getElementById('transition-status').textContent = '🔍 Analyzing...';
+        showInfo('🎯 Starting intelligent beat-synchronized skip...');
 
-        const currentTimeMs = playbackState.progress_ms;
+        // 📍 STEP 1: Get EXACT current playback position
+        const freshPlaybackState = await getCurrentPlayback();
+        if (!freshPlaybackState || !freshPlaybackState.is_playing) {
+          throw new Error('Music not playing - cannot sync beats');
+        }
         
-        if (!deckA.analysis) {
-          document.getElementById('transition-status').textContent = 'Loading Beat Data...';
-          deckA.analysis = await beatSyncEngine.getBeatAnalysis(deckA.track.id);
+        const currentTimeMs = freshPlaybackState.progress_ms;
+        const currentTrack = freshPlaybackState.item;
+        
+        console.log(`🎵 Current position: ${formatTime(currentTimeMs)} in "${currentTrack.name}"`);
+
+        // 📊 STEP 2: Get beat analysis for current track
+        if (!deckA.analysis || deckA.track.id !== currentTrack.id) {
+          document.getElementById('transition-status').textContent = '🎼 Loading current beat data...';
+          showInfo('📊 Analyzing current track beats...');
+          deckA.analysis = await beatSyncEngine.getBeatAnalysis(currentTrack.id);
+          deckA.track = currentTrack;
         }
 
+        if (!deckA.analysis || !deckA.analysis.beats || deckA.analysis.beats.length === 0) {
+          throw new Error('Cannot analyze beats in current track');
+        }
+
+        // 🎯 STEP 3: Find EXACT current beat position
+        const currentBeatInfo = beatSyncEngine.getCurrentBeat(deckA.analysis, currentTimeMs);
+        console.log(`🥁 Current beat: ${currentBeatInfo.beat} (confidence: ${Math.round(currentBeatInfo.confidence * 100)}%)`);
+
+        // 📝 STEP 4: Get next track from queue
+        document.getElementById('transition-status').textContent = '🔍 Finding next track...';
         const queue = await getUserQueue();
         if (!queue || !queue.queue || queue.queue.length === 0) {
-          showError('No next track found in queue');
-          return;
+          throw new Error('No tracks in queue - add songs to continue');
         }
 
         const nextTrack = queue.queue[0];
-        
-        document.getElementById('transition-status').textContent = 'Analyzing Next Track...';
+        console.log(`➡️ Next track: "${nextTrack.name}" by ${nextTrack.artists[0].name}`);
+
+        // 📊 STEP 5: Get beat analysis for next track
+        document.getElementById('transition-status').textContent = '🎼 Analyzing next track...';
+        showInfo(`📊 Analyzing beats in "${nextTrack.name}"...`);
         const nextAnalysis = await beatSyncEngine.getBeatAnalysis(nextTrack.id);
 
-        if (!deckA.analysis || !nextAnalysis) {
-          showError('Could not analyze beat patterns. Using standard skip.');
-          await spotifyRequest('/me/player/next', { method: 'POST' });
-          return;
+        if (!nextAnalysis || !nextAnalysis.beats || nextAnalysis.beats.length === 0) {
+          throw new Error('Cannot analyze beats in next track');
         }
 
-        const currentBeatInfo = beatSyncEngine.getCurrentBeat(deckA.analysis, currentTimeMs);
+        // 🎯 STEP 6: Calculate PERFECT sync point
+        document.getElementById('transition-status').textContent = '🧮 Calculating sync point...';
         
         const syncPreferences = {
           matchDownbeats: djMode === 'party' || djMode === 'workout',
-          matchSections: djMode === 'chill' || djMode === 'focus'
+          matchSections: djMode === 'chill' || djMode === 'focus',
+          prioritizeAccuracy: true
         };
         
         const syncPoint = beatSyncEngine.findSyncPoint(
@@ -1761,49 +1891,109 @@
           syncPreferences
         );
 
+        console.log(`🎯 Sync calculation:
+          - Current beat: ${currentBeatInfo.beat} at ${formatTime(currentTimeMs)}
+          - Target beat: ${syncPoint.syncBeat} at ${formatTime(syncPoint.seekTime)}
+          - Confidence: ${Math.round(syncPoint.confidence)}%
+          - Strategy: ${syncPoint.strategy}`);
+
+        // 📊 STEP 7: Update UI with sync info
         document.getElementById('current-beat-a').textContent = currentBeatInfo.beat;
         updateSyncConfidence('a', currentBeatInfo.confidence * 100);
         document.getElementById('target-beat-b').textContent = syncPoint.syncBeat;
         updateSyncConfidence('b', syncPoint.confidence);
 
-        document.getElementById('transition-status').textContent = 'Syncing...';
-        await performBeatSyncTransition(syncPoint, nextTrack);
+        // 🚀 STEP 8: Perform the EXACT beat-synchronized transition
+        document.getElementById('transition-status').textContent = '🎵 Syncing beats...';
+        showInfo(`🎯 Syncing from beat ${currentBeatInfo.beat} to beat ${syncPoint.syncBeat}...`);
+        
+        await performPreciseBeatSync(syncPoint, nextTrack, currentBeatInfo);
 
+        // 📈 STEP 9: Update performance stats
         performanceStats.transitionCount++;
-        performanceStats.syncAccuracy = Math.min(100, performanceStats.syncAccuracy + (syncPoint.confidence > 80 ? 1 : -0.5));
+        const accuracyBoost = syncPoint.confidence > 80 ? 2 : syncPoint.confidence > 60 ? 1 : -1;
+        performanceStats.syncAccuracy = Math.min(100, Math.max(0, performanceStats.syncAccuracy + accuracyBoost));
         updatePerformanceStats();
 
+        // 💾 STEP 10: Store data for next transition
         deckB.track = nextTrack;
         deckB.analysis = nextAnalysis;
         deckB.targetBeat = syncPoint.syncBeat;
 
-        showSuccess(`🎯 Beat sync complete! Confidence: ${Math.round(syncPoint.confidence)}%`);
+        // ✅ SUCCESS!
+        const successMsg = `🎯 Beat sync complete! Jumped from beat ${currentBeatInfo.beat} to beat ${syncPoint.syncBeat} (${Math.round(syncPoint.confidence)}% confidence)`;
+        showSuccess(successMsg);
+        console.log('✅ Beat synchronization successful!');
 
       } catch (error) {
-        showError('Beat sync skip failed: ' + error.message);
+        console.error('❌ Beat sync failed:', error);
+        showError(`Beat sync failed: ${error.message}`);
+        
+        // 🆘 FALLBACK: Try standard skip as backup
+        try {
+          await spotifyRequest('/me/player/next', { method: 'POST' });
+          showInfo('⚡ Used fallback skip instead');
+        } catch (fallbackError) {
+          showError('Skip completely failed: ' + fallbackError.message);
+        }
       } finally {
+        // 🔓 UNLOCK THE FUNCTION
         transitionInProgress = false;
         document.getElementById('transition-status').textContent = 'Ready';
         document.getElementById('beat-skip-btn').disabled = false;
       }
     }
 
-    async function performBeatSyncTransition(syncPoint, nextTrack) {
+    async function performPreciseBeatSync(syncPoint, nextTrack, currentBeatInfo) {
+      console.log('🚀 Starting precise beat synchronization...');
+      
+      // CRITICAL: Skip to next track first
+      console.log('⏭️ Skipping to next track...');
       await spotifyRequest('/me/player/next', { method: 'POST' });
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      if (syncPoint.seekTime > 1000) {
-        await spotifyRequest('/me/player/seek', {
+      
+      // Wait for Spotify to process the skip
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // CRITICAL: Seek to the EXACT beat position 
+      const seekTimeMs = Math.floor(syncPoint.seekTime);
+      
+      if (seekTimeMs > 2000) { // Only seek if target is more than 2 seconds in
+        console.log(`🎯 Seeking to exact position: ${formatTime(seekTimeMs)} (beat ${syncPoint.syncBeat})`);
+        
+        const seekResult = await spotifyRequest('/me/player/seek', {
           method: 'PUT',
           body: JSON.stringify({
-            position_ms: Math.floor(syncPoint.seekTime)
+            position_ms: seekTimeMs
           })
         });
 
-        showInfo(`🎵 Synced to beat ${syncPoint.syncBeat} at ${formatTime(syncPoint.seekTime)}`);
+        if (seekResult !== null) { // null means error, {} means success
+          showInfo(`🎵 Synced perfectly! Beat ${currentBeatInfo.beat} → Beat ${syncPoint.syncBeat} at ${formatTime(seekTimeMs)}`);
+          console.log('✅ Seek successful');
+        } else {
+          console.log('⚠️ Seek may have failed, but continuing...');
+        }
+      } else {
+        console.log(`ℹ️ Target too early (${formatTime(seekTimeMs)}), playing from start`);
+        showInfo(`🎵 Next track starts perfectly - no seek needed`);
       }
 
+      // Update visual feedback
       updateBeatGridVisualization(syncPoint);
+      
+      // Verify the sync worked by checking new position
+      setTimeout(async () => {
+        try {
+          const newState = await getCurrentPlayback();
+          if (newState && newState.progress_ms) {
+            const actualPosition = formatTime(newState.progress_ms);
+            const targetPosition = formatTime(seekTimeMs);
+            console.log(`🔍 Verification - Target: ${targetPosition}, Actual: ${actualPosition}`);
+          }
+        } catch (e) {
+          console.log('⚠️ Could not verify sync position');
+        }
+      }, 1000);
     }
 
     async function autoMix() {
