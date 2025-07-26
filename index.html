@@ -942,3 +942,788 @@
           <div class="mode-btn active" onclick="setDJMode('party')" data-tooltip="High energy, downbeat matching">🎉 Party</div>
           <div class="mode-btn" onclick="setDJMode('chill')" data-tooltip="Smooth transitions, mood matching">😎 Chill</div>
           <div class="mode-btn" onclick="setDJMode('dark')" data-tooltip="Key harmony, dramatic builds">😈 Dark</div>
+          <div class="mode-btn" onclick="setDJMode('workout')" data-tooltip="Energy maintenance, tempo matching">💪 Workout</div>
+          <div class="mode-btn" onclick="setDJMode('focus')" data-tooltip="Minimal disruption, smooth flow">🧠 Focus</div>
+        </div>
+
+        <!-- AI Brain Section -->
+        <div class="ai-brain">
+          <div class="learning-indicator"></div>
+          <h4>🤖 Beat Sync Brain</h4>
+          <div class="ai-score" id="ai-score">--</div>
+          <div class="ai-recommendations" id="ai-recommendations">
+            <div class="recommendation-item">Analyzing beat patterns for optimal sync points...</div>
+          </div>
+        </div>
+
+        <!-- Mixer Controls -->
+        <div class="mixer-section">
+          <div class="crossfader-container">
+            <label>🎚️ Crossfader</label>
+            <input type="range" id="crossfader" class="crossfader" min="0" max="100" value="50" oninput="updateCrossfader()">
+            <div style="display:flex; justify-content:space-between; font-size:0.8em; margin-top:5px;">
+              <span>CURRENT</span><span>MIX</span><span>NEXT</span>
+            </div>
+          </div>
+
+          <div class="controls-grid">
+            <button onclick="skipToPrevious()" class="btn btn-secondary" data-tooltip="Previous track">⏮️</button>
+            <button onclick="togglePlayPause()" class="btn btn-primary" id="play-btn" data-tooltip="Play/Pause">▶️</button>
+            <button onclick="beatSyncSkip()" class="btn btn-primary" id="beat-skip-btn" data-tooltip="Smart beat-synchronized skip">🎯 Beat Skip</button>
+            <button onclick="autoMix()" class="btn btn-secondary" data-tooltip="Enable auto-mixing mode">🤖 Auto Mix</button>
+          </div>
+
+          <div class="transition-timeline">
+            <div style="font-size:0.8em; margin-bottom:5px;">Beat Sync Timeline</div>
+            <div class="timeline-bar">
+              <div class="timeline-progress" id="transition-progress"></div>
+              <div class="timeline-marker" id="transition-marker" style="left:70%"></div>
+            </div>
+            <div style="font-size:0.7em; display:flex; justify-content:space-between; margin-top:3px;">
+              <span>Current Beat</span><span id="transition-status">Ready</span><span>Sync Point</span>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px; margin:10px 0;">
+            <div class="control-group" style="flex:1;">
+              <label class="control-label">🔊 Current Volume</label>
+              <input type="range" id="volume-a" class="volume-slider" min="0" max="100" value="50" oninput="updateVolume('A')">
+            </div>
+            <div class="control-group" style="flex:1;">
+              <label class="control-label">🔊 Next Volume</label>
+              <input type="range" id="volume-b" class="volume-slider" min="0" max="100" value="50" oninput="updateVolume('B')">
+            </div>
+          </div>
+        </div>
+
+        <!-- Performance Stats -->
+        <div class="performance-stats">
+          <div class="stat-item" data-tooltip="Accuracy of beat synchronization">
+            <div>🎯 Sync Accuracy</div>
+            <div class="stat-value" id="sync-accuracy">98%</div>
+          </div>
+          <div class="stat-item" data-tooltip="Number of successful beat transitions">
+            <div>⚡ Beat Transitions</div>
+            <div class="stat-value" id="transition-count">0</div>
+          </div>
+          <div class="stat-item" data-tooltip="AI learning system status">
+            <div>🧠 AI Learning</div>
+            <div class="stat-value" id="learning-progress">Active</div>
+          </div>
+        </div>
+
+        <!-- Intelligent Queue -->
+        <div class="queue-preview">
+          <h4 style="margin-bottom:10px; font-size:0.9em;">🎼 Beat-Analyzed Queue</h4>
+          <div id="queue-list">
+            <div class="queue-item">
+              <div class="queue-item-info">
+                <div class="queue-item-name">Loading queue analysis...</div>
+                <div class="queue-item-artist">Please wait</div>
+              </div>
+              <div class="queue-item-score">--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Deck (Next Track) -->
+      <div class="deck" id="deck-b">
+        <h3>
+          🎧 NEXT TRACK
+          <span class="deck-status" id="deck-status-b"></span>
+        </h3>
+        
+        <div class="track-info">
+          <div class="track-name" id="track-name-b">Next Track Loading...</div>
+          <div class="track-artist" id="track-artist-b"></div>
+          <div class="track-duration">
+            <span id="current-time-b">0:00</span>
+            <span id="total-time-b">0:00</span>
+          </div>
+        </div>
+        
+        <div class="waveform-container" onclick="seekToPosition(event, 'b')">
+          <div class="waveform" id="waveform-b">
+            <div class="waveform-overlay"></div>
+            <div class="playhead" id="playhead-b"></div>
+            <div class="beat-markers" id="beat-markers-b"></div>
+          </div>
+        </div>
+        
+        <div class="beat-sync-panel">
+          <div class="beat-sync-status">
+            <span>Target Beat: <strong id="target-beat-b">0</strong></span>
+            <span class="sync-confidence" id="sync-confidence-b-badge">--</span>
+          </div>
+          <div class="beat-grid" id="beat-grid-b">
+            <div class="beat-dot" data-tooltip="Target Beat 1"></div>
+            <div class="beat-dot" data-tooltip="Target Beat 2"></div>
+            <div class="beat-dot" data-tooltip="Target Beat 3"></div>
+            <div class="beat-dot sync-target" data-tooltip="Sync Target"></div>
+            <div class="beat-dot downbeat" data-tooltip="Target Downbeat"></div>
+            <div class="beat-dot" data-tooltip="Target Beat 6"></div>
+            <div class="beat-dot" data-tooltip="Target Beat 7"></div>
+            <div class="beat-dot" data-tooltip="Target Beat 8"></div>
+          </div>
+        </div>
+        
+        <div class="audio-features" id="features-b">
+          <div class="feature-bar">
+            <span class="feature-label">Energy</span>
+            <div class="feature-value"><div class="feature-fill energy" style="width:0%"></div></div>
+            <span id="energy-b">0%</span>
+          </div>
+          <div class="feature-bar">
+            <span class="feature-label">Mood</span>
+            <div class="feature-value"><div class="feature-fill valence" style="width:0%"></div></div>
+            <span id="valence-b">0%</span>
+          </div>
+          <div class="feature-bar">
+            <span class="feature-label">Dance</span>
+            <div class="feature-value"><div class="feature-fill danceability" style="width:0%"></div></div>
+            <span id="dance-b">0%</span>
+          </div>
+          <div style="margin-top:8px; font-size:0.75em;">
+            <div>🎼 <span id="key-b">-</span> | 🥁 <span id="tempo-b">- BPM</span></div>
+            <div>🎤 Speech: <span id="speech-b">0%</span> | 🎸 Acoustic: <span id="acoustic-b">0%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logout button -->
+    <div style="text-align: center; margin-top: 20px;">
+      <button onclick="logout()" class="btn btn-secondary" id="logout-btn" style="display:none;">🚪 Logout</button>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+      <div class="loading-content">
+        <div class="spinner"></div>
+        <h3 id="loading-text">Processing...</h3>
+        <p id="loading-details">Please wait while we analyze the audio data</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ENHANCED CONFIGURATION
+    const CLIENT_ID = 'e60ede83721246198bf4fe8a9bee8ca8';
+    const REDIRECT_URI = window.location.origin + window.location.pathname;
+    const SCOPES = [
+      'user-read-playback-state',
+      'user-modify-playback-state',
+      'user-read-currently-playing',
+      'streaming',
+      'user-read-private',
+      'user-library-read',
+      'playlist-read-private',
+      'playlist-read-collaborative',
+      'user-top-read',
+      'user-read-recently-played'
+    ];
+
+    // ENHANCED GLOBAL STATE WITH BEAT TRACKING
+    let accessToken = null;
+    let audioContext = null;
+    let deckA = { 
+      track: null, 
+      features: null, 
+      analysis: null, 
+      gainNode: null, 
+      bufferSource: null, 
+      isPlaying: false,
+      currentBeat: 0,
+      beatTiming: [],
+      syncPoints: []
+    };
+    let deckB = { 
+      track: null, 
+      features: null, 
+      analysis: null, 
+      gainNode: null, 
+      bufferSource: null, 
+      isPlaying: false,
+      targetBeat: 0,
+      beatTiming: [],
+      syncPoints: []
+    };
+    let currentDeck = 'A';
+    let playbackState = null;
+    let updateInterval = null;
+    let beatSyncEngine = null;
+    let djMode = 'party';
+    let transitionInProgress = false;
+    let performanceStats = {
+      syncAccuracy: 98,
+      transitionCount: 0,
+      learningActive: true
+    };
+
+    // BEAT SYNCHRONIZATION ENGINE
+    class BeatSyncEngine {
+      constructor() {
+        this.beatTolerance = 50;
+        this.analysisCache = new Map();
+        this.syncHistory = [];
+      }
+
+      async getBeatAnalysis(trackId) {
+        if (this.analysisCache.has(trackId)) {
+          return this.analysisCache.get(trackId);
+        }
+
+        try {
+          showLoading('Analyzing beat patterns...', 'Getting detailed audio analysis from Spotify');
+          const analysis = await spotifyRequest(`/audio-analysis/${trackId}`);
+          if (analysis && analysis.beats) {
+            const processedAnalysis = this.processBeatData(analysis);
+            this.analysisCache.set(trackId, processedAnalysis);
+            hideLoading();
+            return processedAnalysis;
+          }
+        } catch (error) {
+          console.error('Failed to get beat analysis:', error);
+          hideLoading();
+          showError('Beat analysis failed. Using fallback timing.');
+        }
+
+        hideLoading();
+        return null;
+      }
+
+      processBeatData(analysis) {
+        const beats = analysis.beats || [];
+        const sections = analysis.sections || [];
+        const bars = analysis.bars || [];
+
+        return {
+          beats: beats.map((beat, index) => ({
+            start: beat.start * 1000,
+            duration: beat.duration * 1000,
+            confidence: beat.confidence,
+            index: index,
+            isDownbeat: this.isDownbeat(beat, bars, index)
+          })),
+          bars: bars.map(bar => ({
+            start: bar.start * 1000,
+            duration: bar.duration * 1000,
+            confidence: bar.confidence
+          })),
+          sections: sections.map(section => ({
+            start: section.start * 1000,
+            duration: section.duration * 1000,
+            tempo: section.tempo,
+            key: section.key,
+            mode: section.mode,
+            time_signature: section.time_signature
+          })),
+          totalDuration: analysis.track?.duration * 1000 || 0,
+          averageTempo: this.calculateAverageTempo(beats)
+        };
+      }
+
+      isDownbeat(beat, bars, beatIndex) {
+        return bars.some(bar => Math.abs((beat.start * 1000) - (bar.start * 1000)) < 50);
+      }
+
+      calculateAverageTempo(beats) {
+        if (beats.length < 2) return 120;
+        
+        const intervals = [];
+        for (let i = 1; i < beats.length; i++) {
+          intervals.push(beats[i].start - beats[i-1].start);
+        }
+        
+        const avgInterval = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
+        return 60 / avgInterval;
+      }
+
+      getCurrentBeat(analysis, currentTimeMs) {
+        if (!analysis || !analysis.beats) return { beat: 0, confidence: 0 };
+
+        const beats = analysis.beats;
+        let closestBeat = 0;
+        let minDistance = Infinity;
+
+        for (let i = 0; i < beats.length; i++) {
+          const distance = Math.abs(beats[i].start - currentTimeMs);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestBeat = i;
+          }
+        }
+
+        return {
+          beat: closestBeat,
+          confidence: minDistance < this.beatTolerance ? beats[closestBeat].confidence : 0,
+          timeOffset: minDistance,
+          beatData: beats[closestBeat]
+        };
+      }
+
+      findSyncPoint(sourceAnalysis, targetAnalysis, sourceBeat, preferences = {}) {
+        if (!sourceAnalysis || !targetAnalysis || !sourceAnalysis.beats || !targetAnalysis.beats) {
+          return { syncBeat: 0, confidence: 0, seekTime: 0 };
+        }
+
+        const sourceBeatData = sourceAnalysis.beats[sourceBeat];
+        if (!sourceBeatData) {
+          return { syncBeat: 0, confidence: 0, seekTime: 0 };
+        }
+
+        const sourceProgress = sourceBeat / sourceAnalysis.beats.length;
+        let targetBeat = Math.floor(sourceProgress * targetAnalysis.beats.length);
+
+        if (preferences.matchDownbeats && sourceBeatData.isDownbeat) {
+          targetBeat = this.findNearestDownbeat(targetAnalysis, targetBeat);
+        }
+
+        if (preferences.matchSections) {
+          targetBeat = this.findSimilarSection(sourceAnalysis, targetAnalysis, sourceBeat, targetBeat);
+        }
+
+        targetBeat = Math.max(0, Math.min(targetBeat, targetAnalysis.beats.length - 1));
+
+        const targetBeatData = targetAnalysis.beats[targetBeat];
+        const seekTime = targetBeatData.start;
+
+        const confidence = this.calculateSyncConfidence(sourceBeatData, targetBeatData, sourceAnalysis, targetAnalysis);
+
+        return {
+          syncBeat: targetBeat,
+          confidence: confidence,
+          seekTime: seekTime,
+          targetBeatData: targetBeatData,
+          strategy: this.getStrategyName(preferences)
+        };
+      }
+
+      findNearestDownbeat(analysis, targetBeat) {
+        const beats = analysis.beats;
+        let nearestDownbeat = targetBeat;
+        let minDistance = Infinity;
+
+        const searchRange = 8;
+        for (let i = Math.max(0, targetBeat - searchRange); 
+             i < Math.min(beats.length, targetBeat + searchRange); i++) {
+          if (beats[i].isDownbeat) {
+            const distance = Math.abs(i - targetBeat);
+            if (distance < minDistance) {
+              minDistance = distance;
+              nearestDownbeat = i;
+            }
+          }
+        }
+
+        return nearestDownbeat;
+      }
+
+      findSimilarSection(sourceAnalysis, targetAnalysis, sourceBeat, fallbackBeat) {
+        const sourceTime = sourceAnalysis.beats[sourceBeat].start;
+        const sourceSection = sourceAnalysis.sections.find(section => 
+          sourceTime >= section.start && sourceTime < section.start + section.duration
+        );
+
+        if (!sourceSection) return fallbackBeat;
+
+        const targetSection = targetAnalysis.sections.find(section => 
+          Math.abs(section.tempo - sourceSection.tempo) < 20 &&
+          section.key === sourceSection.key
+        );
+
+        if (!targetSection) return fallbackBeat;
+
+        const targetSectionStart = targetSection.start;
+        let closestBeat = fallbackBeat;
+        let minDistance = Infinity;
+
+        for (let i = 0; i < targetAnalysis.beats.length; i++) {
+          const distance = Math.abs(targetAnalysis.beats[i].start - targetSectionStart);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestBeat = i;
+          }
+        }
+
+        return closestBeat;
+      }
+
+      calculateSyncConfidence(sourceBeat, targetBeat, sourceAnalysis, targetAnalysis) {
+        let confidence = 50;
+
+        confidence += (sourceBeat.confidence * 25);
+        confidence += (targetBeat.confidence * 25);
+
+        if (sourceBeat.isDownbeat && targetBeat.isDownbeat) {
+          confidence += 20;
+        }
+
+        const tempoSimilarity = 1 - Math.abs(sourceAnalysis.averageTempo - targetAnalysis.averageTempo) / 100;
+        confidence += tempoSimilarity * 15;
+
+        const targetProgress = targetBeat.index / targetAnalysis.beats.length;
+        if (targetProgress < 0.1 || targetProgress > 0.9) {
+          confidence -= 10;
+        }
+
+        return Math.max(0, Math.min(100, confidence));
+      }
+
+      getStrategyName(preferences) {
+        if (preferences.matchDownbeats && preferences.matchSections) return 'Advanced';
+        if (preferences.matchDownbeats) return 'Downbeat';
+        if (preferences.matchSections) return 'Section';
+        return 'Position';
+      }
+
+      precalculateSyncPoints(sourceAnalysis, targetAnalysis) {
+        if (!sourceAnalysis || !targetAnalysis) return [];
+
+        const syncPoints = [];
+        const totalBeats = sourceAnalysis.beats.length;
+
+        for (let i = 0; i < totalBeats; i += 4) {
+          const syncPoint = this.findSyncPoint(sourceAnalysis, targetAnalysis, i, {
+            matchDownbeats: true,
+            matchSections: false
+          });
+
+          syncPoints.push({
+            sourceBeat: i,
+            targetBeat: syncPoint.syncBeat,
+            confidence: syncPoint.confidence,
+            seekTime: syncPoint.seekTime,
+            isRecommended: syncPoint.confidence > 75
+          });
+        }
+
+        return syncPoints;
+      }
+    }
+
+    // AUTHENTICATION FUNCTIONS
+    async function generateCodeChallenge(codeVerifier) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(codeVerifier);
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return btoa(String.fromCharCode(...new Uint8Array(digest)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+    }
+
+    function generateRandomString(length) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+      let result = '';
+      for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    }
+
+    async function login() {
+      try {
+        showInfo('Initiating secure login...', 'Connecting to Spotify');
+        
+        const state = generateRandomString(16);
+        const codeVerifier = generateRandomString(128);
+        const codeChallenge = await generateCodeChallenge(codeVerifier);
+        
+        sessionStorage.setItem('code_verifier', codeVerifier);
+        sessionStorage.setItem('state', state);
+        sessionStorage.setItem('login_timestamp', Date.now().toString());
+        
+        const authUrl = new URL('https://accounts.spotify.com/authorize');
+        authUrl.searchParams.set('response_type', 'code');
+        authUrl.searchParams.set('client_id', CLIENT_ID);
+        authUrl.searchParams.set('scope', SCOPES.join(' '));
+        authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+        authUrl.searchParams.set('state', state);
+        authUrl.searchParams.set('code_challenge_method', 'S256');
+        authUrl.searchParams.set('code_challenge', codeChallenge);
+        authUrl.searchParams.set('show_dialog', 'false');
+        
+        window.location = authUrl.toString();
+      } catch (error) {
+        showError('Failed to initiate login: ' + error.message);
+      }
+    }
+
+    async function handleRedirect() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const state = params.get('state');
+      const error = params.get('error');
+
+      if (error) {
+        showError(`Authentication failed: ${error}`);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+
+      if (!code) return;
+
+      try {
+        showInfo('Completing authentication...', 'Exchanging authorization code');
+        
+        const storedState = sessionStorage.getItem('state');
+        if (state !== storedState) {
+          throw new Error('State validation failed - possible security issue');
+        }
+
+        const codeVerifier = sessionStorage.getItem('code_verifier');
+        if (!codeVerifier) {
+          throw new Error('Code verifier missing');
+        }
+
+        const body = new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: REDIRECT_URI,
+          client_id: CLIENT_ID,
+          code_verifier: codeVerifier
+        });
+
+        const response = await fetch('https://accounts.spotify.com/api/token', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+          },
+          body
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(`HTTP ${response.status}: ${errorData.error_description || response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.access_token) {
+          throw new Error('No access token received');
+        }
+
+        accessToken = data.access_token;
+        sessionStorage.setItem('access_token', data.access_token);
+        
+        if (data.refresh_token) {
+          sessionStorage.setItem('refresh_token', data.refresh_token);
+        }
+        
+        const expiresAt = Date.now() + ((data.expires_in - 60) * 1000);
+        sessionStorage.setItem('token_expires', expiresAt.toString());
+        
+        window.history.replaceState({}, document.title, window.location.pathname);
+        sessionStorage.removeItem('code_verifier');
+        sessionStorage.removeItem('state');
+        sessionStorage.removeItem('login_timestamp');
+        
+        showSuccess('🎉 Connected to Spotify! Initializing Beat Sync Engine...');
+        await initializeDJ();
+        
+      } catch (error) {
+        showError(`Authentication failed: ${error.message}`);
+        sessionStorage.removeItem('code_verifier');
+        sessionStorage.removeItem('state');
+        sessionStorage.removeItem('login_timestamp');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+
+    async function refreshToken() {
+      const refresh_token = sessionStorage.getItem('refresh_token');
+      if (!refresh_token) {
+        showError('Session expired. Please login again.');
+        logout();
+        return false;
+      }
+
+      try {
+        showInfo('Refreshing session...', 'Updating authentication tokens');
+        
+        const body = new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token,
+          client_id: CLIENT_ID
+        });
+
+        const response = await fetch('https://accounts.spotify.com/api/token', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+          },
+          body
+        });
+
+        if (!response.ok) {
+          throw new Error('Token refresh failed');
+        }
+
+        const data = await response.json();
+        
+        if (!data.access_token) {
+          throw new Error('No access token in refresh response');
+        }
+
+        accessToken = data.access_token;
+        sessionStorage.setItem('access_token', data.access_token);
+        
+        if (data.refresh_token) {
+          sessionStorage.setItem('refresh_token', data.refresh_token);
+        }
+        
+        const expiresAt = Date.now() + ((data.expires_in - 60) * 1000);
+        sessionStorage.setItem('token_expires', expiresAt.toString());
+
+        return true;
+        
+      } catch (error) {
+        showError('Session refresh failed. Please login again.');
+        logout();
+        return false;
+      }
+    }
+
+    async function ensureValidToken() {
+      const expires = sessionStorage.getItem('token_expires');
+      if (!expires || Date.now() >= parseInt(expires)) {
+        return await refreshToken();
+      }
+      return true;
+    }
+
+    // SPOTIFY API FUNCTIONS
+    async function spotifyRequest(endpoint, options = {}) {
+      if (!await ensureValidToken()) return null;
+
+      const maxRetries = 3;
+      let retries = 0;
+
+      while (retries < maxRetries) {
+        try {
+          const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+              ...options.headers
+            },
+            ...options
+          });
+
+          if (response.status === 401 && retries === 0) {
+            if (await refreshToken()) {
+              retries++;
+              continue;
+            } else {
+              return null;
+            }
+          }
+
+          if (response.status === 429) {
+            const retryAfter = parseInt(response.headers.get('Retry-After') || '1');
+            await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+            retries++;
+            continue;
+          }
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Spotify API error: ${response.status} ${errorData.error?.message || response.statusText}`);
+          }
+
+          if (response.status === 204) return {};
+          return await response.json();
+          
+        } catch (error) {
+          console.error(`Spotify API request failed (attempt ${retries + 1}):`, error);
+          retries++;
+          
+          if (retries >= maxRetries) {
+            showError(`API request failed: ${error.message}`);
+            return null;
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+        }
+      }
+      
+      return null;
+    }
+
+    async function getCurrentPlayback() {
+      return await spotifyRequest('/me/player?additional_types=episode');
+    }
+
+    async function getAudioFeatures(trackId) {
+      if (!trackId) return null;
+      return await spotifyRequest(`/audio-features/${trackId}`);
+    }
+
+    async function getUserQueue() {
+      return await spotifyRequest('/me/player/queue');
+    }
+
+    // PLAYBACK CONTROL FUNCTIONS
+    async function togglePlayPause() {
+      if (!playbackState) {
+        showError('No active playback found. Please start playing music in Spotify.');
+        return;
+      }
+      
+      try {
+        const playBtn = document.getElementById('play-btn');
+        playBtn.disabled = true;
+        
+        if (playbackState.is_playing) {
+          await spotifyRequest('/me/player/pause', { method: 'PUT' });
+          playBtn.innerHTML = '▶️';
+          updateDeckStatus('a', 'paused');
+        } else {
+          await spotifyRequest('/me/player/play', { method: 'PUT' });
+          playBtn.innerHTML = '⏸️';
+          updateDeckStatus('a', 'playing');
+        }
+      } catch (error) {
+        showError('Playback control failed: ' + error.message);
+      } finally {
+        document.getElementById('play-btn').disabled = false;
+      }
+    }
+
+    async function skipToPrevious() {
+      try {
+        await spotifyRequest('/me/player/previous', { method: 'POST' });
+        performanceStats.transitionCount++;
+        updatePerformanceStats();
+        showInfo('⏮️ Skipped to previous track');
+      } catch (error) {
+        showError('Failed to skip to previous track: ' + error.message);
+      }
+    }
+
+    async function beatSyncSkip() {
+      if (transitionInProgress) {
+        showInfo('Transition already in progress...');
+        return;
+      }
+
+      if (!playbackState || !deckA.track) {
+        showError('No track currently playing');
+        return;
+      }
+
+      try {
+        transitionInProgress = true;
+        const beatSkipBtn = document.getElementById('beat-skip-btn');
+        beatSkipBtn.disabled = true;
+        document.getElementById('transition-status').textContent = 'Analyzing Beats...';
+        showInfo('🎯 Initiating beat-synchronized skip...');
+
+        const currentTimeMs = playbackState.progress_ms;
+        
+        if (!deckA.analysis) {
+          document.getElementById('transition-status').
