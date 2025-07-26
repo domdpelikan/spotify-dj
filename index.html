@@ -546,6 +546,9 @@
           <button onclick="toggleAutoMix()" class="btn btn-secondary" id="auto-btn">
             🔄 Auto
           </button>
+          <button onclick="refreshPlayback()" class="btn btn-secondary" id="refresh-btn">
+            🔄 Sync
+          </button>
         </div>
 
         <button onclick="logout()" class="btn btn-secondary" style="margin-top: 20px; font-size: 0.9em;">
@@ -761,7 +764,7 @@
       // Ready
       player.addListener('ready', ({ device_id }) => {
         deviceId = device_id;
-        showNotification('Player ready!');
+        showNotification('Player ready! Checking for existing music...');
         updatePlayerStatus('Ready');
         initializeDJ();
       });
@@ -831,8 +834,90 @@
       
       setupSearch();
       
+      // Check for existing playback and offer to transfer
+      await checkExistingPlayback();
+      
       // Start progress tracking
       setInterval(updateProgress, 1000);
+    }
+
+    async function checkExistingPlayback() {
+      try {
+        const playback = await spotifyRequest('/me/player');
+        
+        if (playback && playback.item && playback.is_playing) {
+          showNotification(`Found music playing: ${playback.item.name}`, 'success');
+          
+          // Add transfer button to UI
+          const transferBtn = document.createElement('button');
+          transferBtn.className = 'btn btn-secondary';
+          transferBtn.style.margin = '10px';
+          transferBtn.textContent = '📱 Transfer Current Music';
+          transferBtn.onclick = () => transferPlayback(playback);
+          
+          const controls = document.querySelector('.main-controls');
+          controls.insertBefore(transferBtn, controls.firstChild);
+          
+          // Auto-transfer after 3 seconds if user doesn't interact
+          setTimeout(() => {
+            if (transferBtn.parentNode) {
+              transferPlayback(playback);
+            }
+          }, 3000);
+        }
+      } catch (error) {
+        console.log('No existing playback found');
+      }
+    }
+
+    async function transferPlayback(existingPlayback) {
+      try {
+        showLoading();
+        showNotification('Transferring music to DJ player...');
+        
+        // Transfer playback to our device
+        await spotifyRequest('/me/player', {
+          method: 'PUT',
+          body: JSON.stringify({
+            device_ids: [deviceId],
+            play: existingPlayback.is_playing
+          })
+        });
+        
+        // Wait a moment for transfer
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Load the current track info to Deck A
+        const trackId = existingPlayback.item.id;
+        const features = await spotifyRequest(`/audio-features/${trackId}`);
+        const bpm = features ? Math.round(features.tempo) : 0;
+        
+        deckA = {
+          track: existingPlayback.item,
+          bpm: bpm,
+          uri: existingPlayback.item.uri,
+          position: existingPlayback.progress_ms,
+          duration: existingPlayback.item.duration_ms
+        };
+        
+        updateDeckDisplay('A', existingPlayback.item, bpm);
+        currentDeck = 'A';
+        isPlaying = existingPlayback.is_playing;
+        updatePlayButton();
+        
+        // Remove transfer button
+        const transferBtn = document.querySelector('button[onclick*="transferPlayback"]');
+        if (transferBtn) {
+          transferBtn.remove();
+        }
+        
+        showNotification('Music transferred successfully!');
+        
+      } catch (error) {
+        showNotification('Transfer failed: ' + error.message, 'error');
+      } finally {
+        hideLoading();
+      }
     }
 
     function setupSearch() {
@@ -1181,13 +1266,50 @@
       }, 3000);
     }
 
-    function logout() {
-      if (player) {
-        player.disconnect();
+    async function refreshPlayback() {
+      try {
+        showLoading();
+        showNotification('Checking for current music...');
+        
+        const playback = await spotifyRequest('/me/player');
+        
+        if (playback && playback.item) {
+          if (playback.device.id !== deviceId) {
+            // Music is playing on another device - offer to transfer
+            const shouldTransfer = confirm(`Music is playing on ${playback.device.name}. Transfer to DJ player?`);
+            if (shouldTransfer) {
+              await transferPlayback(playback);
+            }
+          } else {
+            // Music is already on our device - just update display
+            const trackId = playback.item.id;
+            const features = await spotifyRequest(`/audio-features/${trackId}`);
+            const bpm = features ? Math.round(features.tempo) : 0;
+            
+            deckA = {
+              track: playback.item,
+              bpm: bpm,
+              uri: playback.item.uri,
+              position: playback.progress_ms,
+              duration: playback.item.duration_ms
+            };
+            
+            updateDeckDisplay('A', playback.item, bpm);
+            currentDeck = 'A';
+            isPlaying = playback.is_playing;
+            updatePlayButton();
+            
+            showNotification('Synced with current music!');
+          }
+        } else {
+          showNotification('No music currently playing', 'error');
+        }
+        
+      } catch (error) {
+        showNotification('Sync failed: ' + error.message, 'error');
+      } finally {
+        hideLoading();
       }
-      accessToken = null;
-      sessionStorage.clear();
-      window.location.reload();
     }
 
     // Initialize
@@ -1229,6 +1351,10 @@
           e.preventDefault();
           currentDeck = 'B';
           showNotification('Deck B selected');
+          break;
+        case 'KeyR':
+          e.preventDefault();
+          refreshPlayback();
           break;
       }
     });
