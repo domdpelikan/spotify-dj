@@ -1907,7 +1907,12 @@
         document.getElementById('transition-status').textContent = '🎵 Syncing beats...';
         showInfo(`🎯 Syncing from beat ${currentBeatInfo.beat} to beat ${syncPoint.syncBeat}...`);
         
-        await performPreciseBeatSync(syncPoint, nextTrack, currentBeatInfo);
+        // CRITICAL FIX: Use the enhanced seek function
+        const syncSuccess = await performEnhancedBeatSync(syncPoint, nextTrack, currentBeatInfo);
+        
+        if (!syncSuccess) {
+          throw new Error('Beat synchronization failed - position not reached');
+        }
 
         // 📈 STEP 9: Update performance stats
         performanceStats.transitionCount++;
@@ -1944,56 +1949,163 @@
       }
     }
 
-    async function performPreciseBeatSync(syncPoint, nextTrack, currentBeatInfo) {
-      console.log('🚀 Starting precise beat synchronization...');
+    async function performEnhancedBeatSync(syncPoint, nextTrack, currentBeatInfo) {
+      console.log('🚀 Starting ENHANCED beat synchronization...');
+      console.log(`📊 Sync Parameters:
+        - From: Beat ${currentBeatInfo.beat} in current track
+        - To: Beat ${syncPoint.syncBeat} at ${formatTime(syncPoint.seekTime)}
+        - Confidence: ${Math.round(syncPoint.confidence)}%
+        - Strategy: ${syncPoint.strategy}`);
       
-      // CRITICAL: Skip to next track first
-      console.log('⏭️ Skipping to next track...');
-      await spotifyRequest('/me/player/next', { method: 'POST' });
+      // STEP 1: Skip to next track
+      console.log('⏭️ Executing skip to next track...');
+      showInfo('⏭️ Skipping to next track...');
       
-      // Wait for Spotify to process the skip
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const skipResult = await spotifyRequest('/me/player/next', { method: 'POST' });
       
-      // CRITICAL: Seek to the EXACT beat position 
-      const seekTimeMs = Math.floor(syncPoint.seekTime);
-      
-      if (seekTimeMs > 2000) { // Only seek if target is more than 2 seconds in
-        console.log(`🎯 Seeking to exact position: ${formatTime(seekTimeMs)} (beat ${syncPoint.syncBeat})`);
-        
-        const seekResult = await spotifyRequest('/me/player/seek', {
-          method: 'PUT',
-          body: JSON.stringify({
-            position_ms: seekTimeMs
-          })
-        });
-
-        if (seekResult !== null) { // null means error, {} means success
-          showInfo(`🎵 Synced perfectly! Beat ${currentBeatInfo.beat} → Beat ${syncPoint.syncBeat} at ${formatTime(seekTimeMs)}`);
-          console.log('✅ Seek successful');
-        } else {
-          console.log('⚠️ Seek may have failed, but continuing...');
-        }
-      } else {
-        console.log(`ℹ️ Target too early (${formatTime(seekTimeMs)}), playing from start`);
-        showInfo(`🎵 Next track starts perfectly - no seek needed`);
+      if (skipResult === null) {
+        throw new Error('Failed to skip to next track');
       }
-
-      // Update visual feedback
-      updateBeatGridVisualization(syncPoint);
       
-      // Verify the sync worked by checking new position
-      setTimeout(async () => {
-        try {
-          const newState = await getCurrentPlayback();
-          if (newState && newState.progress_ms) {
-            const actualPosition = formatTime(newState.progress_ms);
-            const targetPosition = formatTime(seekTimeMs);
-            console.log(`🔍 Verification - Target: ${targetPosition}, Actual: ${actualPosition}`);
-          }
-        } catch (e) {
-          console.log('⚠️ Could not verify sync position');
+      console.log('✅ Skip command successful');
+      
+      // STEP 2: Wait for new track to load completely
+      console.log('⏳ Waiting for new track to load...');
+      await new Promise(resolve => setTimeout(resolve, 1200)); // Increased wait time
+      
+      // STEP 3: Verify new track is playing
+      let newTrackVerified = false;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const checkState = await getCurrentPlayback();
+        if (checkState && checkState.item && checkState.item.id === nextTrack.id) {
+          newTrackVerified = true;
+          console.log(`✅ New track verified: "${checkState.item.name}"`);
+          break;
         }
-      }, 1000);
+        console.log(`⏳ Track verification attempt ${attempt + 1}/5...`);
+        await new Promise(resolve => setTimeout(resolve, 600));
+      }
+      
+      if (!newTrackVerified) {
+        throw new Error('New track failed to load - cannot sync beats');
+      }
+      
+      // STEP 4: CRITICAL - Seek to calculated beat position
+      const targetPositionMs = Math.floor(syncPoint.seekTime);
+      
+      console.log(`🎯 SEEKING TO BEAT ${syncPoint.syncBeat} at ${formatTime(targetPositionMs)}`);
+      showInfo(`🎯 Seeking to beat ${syncPoint.syncBeat}...`);
+      
+      // Use reliable seek with multiple attempts
+      const seekSuccess = await performReliableSeek(targetPositionMs);
+      
+      if (!seekSuccess) {
+        // Last resort: try one more time with a slightly different position
+        console.log('🔄 Last resort seek attempt...');
+        const adjustedPosition = Math.max(1000, targetPositionMs - 500); // Slight adjustment
+        const finalAttempt = await performReliableSeek(adjustedPosition);
+        
+        if (!finalAttempt) {
+          throw new Error(`Failed to seek to beat position after multiple attempts`);
+        }
+      }
+      
+      // STEP 5: Final verification
+      console.log('🔍 Final position verification...');
+      const finalVerification = await verifyBeatSyncSuccess(targetPositionMs, 4000); // 4 second tolerance
+      
+      if (finalVerification.success) {
+        console.log(`✅ BEAT SYNC SUCCESSFUL!
+          - Target: ${formatTime(finalVerification.expectedPosition)}
+          - Actual: ${formatTime(finalVerification.actualPosition)}
+          - Difference: ${finalVerification.difference}ms`);
+        
+        showSuccess(`🎯 Perfect sync! Beat ${currentBeatInfo.beat} → Beat ${syncPoint.syncBeat}`);
+        updateBeatGridVisualization(syncPoint);
+        return true;
+      } else {
+        console.log(`⚠️ Position verification failed: ${finalVerification.reason}`);
+        showInfo(`🎵 Partial sync - attempted beat ${syncPoint.syncBeat}`);
+        updateBeatGridVisualization(syncPoint);
+        return false; // Still attempted, so don't fail completely
+      }
+    }
+
+    // ENHANCED: Add a dedicated verification function
+    async function verifyBeatSyncSuccess(expectedPosition, tolerance = 3000) {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const currentState = await getCurrentPlayback();
+        if (!currentState || currentState.progress_ms === undefined) {
+          return { success: false, reason: 'No playback state available' };
+        }
+        
+        const actualPosition = currentState.progress_ms;
+        const difference = Math.abs(actualPosition - expectedPosition);
+        
+        const success = difference <= tolerance;
+        
+        return {
+          success,
+          actualPosition,
+          expectedPosition,
+          difference,
+          reason: success ? 'Position verified successfully' : `Position difference too large: ${difference}ms`
+        };
+      } catch (error) {
+        return { success: false, reason: 'Verification failed: ' + error.message };
+      }
+    }
+
+    // ENHANCED: Better seek function with retries
+    async function performReliableSeek(targetPositionMs, maxRetries = 3) {
+      console.log(`🎯 Attempting to seek to ${formatTime(targetPositionMs)}`);
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`📡 Seek attempt ${attempt}/${maxRetries}`);
+          
+          const seekResult = await spotifyRequest('/me/player/seek', {
+            method: 'PUT',
+            body: JSON.stringify({
+              position_ms: Math.floor(targetPositionMs)
+            })
+          });
+
+          if (seekResult !== null) { // Success (null means error, {} means success)
+            console.log(`✅ Seek attempt ${attempt} successful`);
+            
+            // Verify the seek worked
+            await new Promise(resolve => setTimeout(resolve, 800));
+            const verification = await verifyBeatSyncSuccess(targetPositionMs);
+            
+            if (verification.success) {
+              console.log('✅ Seek verified successfully');
+              return true;
+            } else {
+              console.log(`⚠️ Seek verification failed: ${verification.reason}`);
+              if (attempt < maxRetries) {
+                console.log('🔄 Retrying seek...');
+                await new Promise(resolve => setTimeout(resolve, 500));
+              }
+            }
+          } else {
+            console.log(`❌ Seek attempt ${attempt} failed`);
+            if (attempt < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          }
+        } catch (error) {
+          console.log(`❌ Seek attempt ${attempt} error: ${error.message}`);
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      }
+      
+      console.log('❌ All seek attempts failed');
+      return false;
     }
 
     async function autoMix() {
