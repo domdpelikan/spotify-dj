@@ -130,6 +130,27 @@
       color: #ff0080;
     }
 
+    /* Progress Bar */
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #1db954, #1ed760);
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+
+    .deck-b .progress-fill {
+      background: linear-gradient(90deg, #ff0080, #ff4da6);
+    }
+
     /* Crossfader */
     .crossfader-section {
       display: flex;
@@ -265,6 +286,49 @@
       color: #ff0080;
     }
 
+    /* Volume Controls */
+    .volume-section {
+      display: flex;
+      justify-content: space-between;
+      margin: 20px 0;
+      gap: 20px;
+    }
+
+    .volume-control {
+      flex: 1;
+      text-align: center;
+    }
+
+    .volume-label {
+      font-size: 0.9em;
+      margin-bottom: 10px;
+      opacity: 0.8;
+    }
+
+    .volume-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #1db954;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .deck-b .volume-slider::-webkit-slider-thumb {
+      background: #ff0080;
+    }
+
     /* Login Section */
     .login-section {
       background: rgba(255, 255, 255, 0.05);
@@ -354,6 +418,7 @@
       transform: translateX(100%);
       transition: transform 0.3s ease;
       z-index: 1000;
+      max-width: 300px;
     }
 
     .notification.show {
@@ -377,11 +442,11 @@
       <h2 class="login-title">🎧 AI DJ</h2>
       <p class="login-description">
         Smart beat matching and seamless transitions powered by AI. 
-        Connect your Spotify to start mixing like a pro.
+        Connect your Spotify Premium account to start mixing in your browser.
       </p>
       <button onclick="login()" class="btn btn-primary">Connect Spotify</button>
       <p style="margin-top: 20px; font-size: 0.8em; opacity: 0.6;">
-        Spotify Premium required
+        Spotify Premium required • Plays music directly in browser
       </p>
     </div>
 
@@ -391,8 +456,8 @@
         <!-- Status Bar -->
         <div class="status-bar">
           <div class="status-item">
-            <span>🎵 Status:</span>
-            <span class="status-value" id="system-status">Ready</span>
+            <span>🎵 Player:</span>
+            <span class="status-value" id="player-status">Connecting...</span>
           </div>
           <div class="status-item">
             <span>🎯 Beat Match:</span>
@@ -411,7 +476,10 @@
             <div class="deck-label">Deck A</div>
             <div class="track-info">
               <div class="track-name" id="track-a-name">No Track</div>
-              <div class="track-artist" id="track-a-artist">Load a track</div>
+              <div class="track-artist" id="track-a-artist">Search for music</div>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-a"></div>
             </div>
             <div class="bpm-display" id="bpm-a">--</div>
           </div>
@@ -436,8 +504,32 @@
               <div class="track-name" id="track-b-name">No Track</div>
               <div class="track-artist" id="track-b-artist">Ready to queue</div>
             </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-b"></div>
+            </div>
             <div class="bpm-display" id="bpm-b">--</div>
           </div>
+        </div>
+
+        <!-- Volume Controls -->
+        <div class="volume-section">
+          <div class="volume-control">
+            <div class="volume-label">Deck A Volume</div>
+            <input type="range" class="volume-slider" id="volume-a" 
+                   min="0" max="100" value="100">
+          </div>
+          <div class="volume-control">
+            <div class="volume-label">Deck B Volume</div>
+            <input type="range" class="volume-slider" id="volume-b" 
+                   min="0" max="100" value="0">
+          </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div style="margin: 20px 0;">
+          <input type="text" id="search-input" placeholder="Search for tracks..." 
+                 style="width: 100%; padding: 15px; border-radius: 10px; border: none; background: rgba(255,255,255,0.1); color: white; font-size: 1em;">
+          <div id="search-results" style="margin-top: 10px; max-height: 200px; overflow-y: auto;"></div>
         </div>
 
         <!-- Main Controls -->
@@ -448,8 +540,8 @@
           <button onclick="togglePlayPause()" class="btn btn-secondary" id="play-btn">
             ▶️ Play
           </button>
-          <button onclick="loadNextTrack()" class="btn btn-secondary">
-            ⏭️ Next
+          <button onclick="skipTrack()" class="btn btn-secondary">
+            ⏭️ Skip
           </button>
           <button onclick="toggleAutoMix()" class="btn btn-secondary" id="auto-btn">
             🔄 Auto
@@ -471,6 +563,9 @@
   <!-- Notification -->
   <div class="notification" id="notification"></div>
 
+  <!-- Spotify Web Playback SDK -->
+  <script src="https://sdk.scdn.co/spotify-player.js"></script>
+
   <script>
     // Configuration
     const CLIENT_ID = 'e60ede83721246198bf4fe8a9bee8ca8';
@@ -480,16 +575,24 @@
       'user-modify-playback-state',
       'user-read-currently-playing',
       'streaming',
-      'user-read-recently-played'
+      'user-read-recently-played',
+      'user-library-read',
+      'user-library-modify',
+      'playlist-read-private',
+      'playlist-read-collaborative'
     ];
 
     // Global state
     let accessToken = null;
-    let deckA = { track: null, bpm: 0 };
-    let deckB = { track: null, bpm: 0 };
+    let player = null;
+    let deviceId = null;
+    let currentTrack = null;
+    let deckA = { track: null, bpm: 0, uri: null, position: 0, duration: 0 };
+    let deckB = { track: null, bpm: 0, uri: null, position: 0, duration: 0 };
     let autoMixActive = false;
     let isPlaying = false;
     let mixInProgress = false;
+    let currentDeck = 'A';
 
     // Simple DJ AI for beat matching
     class SimpleDJ {
@@ -501,10 +604,9 @@
       }
 
       findOptimalMixPoint(trackA, trackB) {
-        // Simple mix point calculation
         const bpmMatch = this.calculateBPMMatch(trackA.bpm, trackB.bpm);
         return {
-          mixDuration: bpmMatch > 80 ? 16000 : 8000, // 16s or 8s mix
+          mixDuration: bpmMatch > 80 ? 16000 : 8000,
           confidence: bpmMatch / 100
         };
       }
@@ -600,12 +702,103 @@
         
         window.history.replaceState({}, document.title, window.location.pathname);
         
-        await initializeDJ();
+        await initializePlayer();
         
       } catch (error) {
         showNotification('Setup failed: ' + error.message, 'error');
       } finally {
         hideLoading();
+      }
+    }
+
+    // Spotify Web Playback SDK
+    window.onSpotifyWebPlaybackSDKReady = () => {
+      if (accessToken) {
+        initializePlayer();
+      }
+    };
+
+    async function initializePlayer() {
+      if (!window.Spotify) {
+        showNotification('Spotify SDK not loaded', 'error');
+        return;
+      }
+
+      player = new Spotify.Player({
+        name: 'AI DJ Player',
+        getOAuthToken: cb => { cb(accessToken); },
+        volume: 0.5
+      });
+
+      // Error handling
+      player.addListener('initialization_error', ({ message }) => {
+        showNotification('Player error: ' + message, 'error');
+      });
+
+      player.addListener('authentication_error', ({ message }) => {
+        showNotification('Auth error: ' + message, 'error');
+      });
+
+      player.addListener('account_error', ({ message }) => {
+        showNotification('Account error: ' + message, 'error');
+      });
+
+      player.addListener('playback_error', ({ message }) => {
+        showNotification('Playback error: ' + message, 'error');
+      });
+
+      // Playback status updates
+      player.addListener('player_state_changed', state => {
+        if (!state) return;
+
+        currentTrack = state.track_window.current_track;
+        isPlaying = !state.paused;
+        
+        updateCurrentTrackDisplay(state);
+        updatePlayButton();
+      });
+
+      // Ready
+      player.addListener('ready', ({ device_id }) => {
+        deviceId = device_id;
+        showNotification('Player ready!');
+        updatePlayerStatus('Ready');
+        initializeDJ();
+      });
+
+      // Not ready
+      player.addListener('not_ready', ({ device_id }) => {
+        showNotification('Player disconnected', 'error');
+        updatePlayerStatus('Disconnected');
+      });
+
+      // Connect to the player
+      const success = await player.connect();
+      if (success) {
+        updatePlayerStatus('Connecting...');
+      } else {
+        showNotification('Failed to connect player', 'error');
+      }
+    }
+
+    function updateCurrentTrackDisplay(state) {
+      const track = state.track_window.current_track;
+      const position = state.position;
+      const duration = track.duration_ms;
+      
+      // Update Deck A (current playing track)
+      if (currentDeck === 'A') {
+        deckA.track = track;
+        deckA.position = position;
+        deckA.duration = duration;
+        updateDeckDisplay('A', track);
+        updateProgress('A', position, duration);
+      } else {
+        deckB.track = track;
+        deckB.position = position;
+        deckB.duration = duration;
+        updateDeckDisplay('B', track);
+        updateProgress('B', position, duration);
       }
     }
 
@@ -636,55 +829,145 @@
       document.getElementById('login-section').style.display = 'none';
       document.getElementById('main-interface').style.display = 'block';
       
-      updateStatus('Connected', 'success');
-      showNotification('DJ System Ready!');
+      setupSearch();
       
-      // Load current track
-      await loadCurrentTrack();
-      
-      // Start monitoring
-      setInterval(updateInterface, 2000);
+      // Start progress tracking
+      setInterval(updateProgress, 1000);
     }
 
-    async function loadCurrentTrack() {
-      const playback = await spotifyRequest('/me/player');
-      if (playback && playback.item) {
-        await loadToDeck('A', playback.item);
-        isPlaying = playback.is_playing;
-        updatePlayButton();
+    function setupSearch() {
+      const searchInput = document.getElementById('search-input');
+      const searchResults = document.getElementById('search-results');
+      
+      let searchTimeout;
+      
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+        
+        if (query.length < 2) {
+          searchResults.innerHTML = '';
+          return;
+        }
+        
+        searchTimeout = setTimeout(() => searchTracks(query), 300);
+      });
+    }
+
+    async function searchTracks(query) {
+      const results = await spotifyRequest(`/search?q=${encodeURIComponent(query)}&type=track&limit=5`);
+      const searchResults = document.getElementById('search-results');
+      
+      if (!results || !results.tracks) {
+        searchResults.innerHTML = '<div style="padding: 10px; opacity: 0.5;">No results found</div>';
+        return;
       }
+      
+      searchResults.innerHTML = results.tracks.items.map(track => `
+        <div style="
+          padding: 10px; 
+          background: rgba(255,255,255,0.05); 
+          margin: 5px 0; 
+          border-radius: 8px; 
+          cursor: pointer;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        " onclick="loadTrack('${track.uri}', '${currentDeck}')">
+          <div>
+            <div style="font-weight: 600;">${track.name}</div>
+            <div style="opacity: 0.7; font-size: 0.9em;">${track.artists[0].name}</div>
+          </div>
+          <div style="opacity: 0.5; font-size: 0.8em;">
+            ${Math.floor(track.duration_ms / 60000)}:${String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
+          </div>
+        </div>
+      `).join('');
     }
 
-    async function loadToDeck(deck, track) {
+    async function loadTrack(uri, deck) {
       showLoading();
       
       try {
-        // Get audio features for BPM
-        const features = await spotifyRequest(`/audio-features/${track.id}`);
+        // Get track info
+        const trackId = uri.split(':')[2];
+        const [trackInfo, features] = await Promise.all([
+          spotifyRequest(`/tracks/${trackId}`),
+          spotifyRequest(`/audio-features/${trackId}`)
+        ]);
+        
         const bpm = features ? Math.round(features.tempo) : 0;
         
         if (deck === 'A') {
-          deckA = { track, bpm };
-          updateDeckDisplay('A', track, bpm);
+          deckA = { track: trackInfo, bpm, uri, position: 0, duration: trackInfo.duration_ms };
+          updateDeckDisplay('A', trackInfo, bpm);
+          
+          // Play immediately on Deck A
+          await playTrack(uri);
+          currentDeck = 'A';
+          
         } else {
-          deckB = { track, bpm };
-          updateDeckDisplay('B', track, bpm);
+          deckB = { track: trackInfo, bpm, uri, position: 0, duration: trackInfo.duration_ms };
+          updateDeckDisplay('B', trackInfo, bpm);
         }
         
         updateBeatMatch();
+        showNotification(`Loaded: ${trackInfo.name}`);
+        
+        // Clear search
+        document.getElementById('search-input').value = '';
+        document.getElementById('search-results').innerHTML = '';
         
       } catch (error) {
-        showNotification('Failed to load track', 'error');
+        showNotification('Failed to load track: ' + error.message, 'error');
       } finally {
         hideLoading();
       }
     }
 
-    function updateDeckDisplay(deck, track, bpm) {
+    async function playTrack(uri) {
+      if (!deviceId) {
+        showNotification('Player not ready', 'error');
+        return;
+      }
+      
+      try {
+        await spotifyRequest(`/me/player/play?device_id=${deviceId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            uris: [uri]
+          })
+        });
+      } catch (error) {
+        showNotification('Playback failed: ' + error.message, 'error');
+      }
+    }
+
+    function updateDeckDisplay(deck, track, bpm = null) {
       const deckLower = deck.toLowerCase();
       document.getElementById(`track-${deckLower}-name`).textContent = track.name;
       document.getElementById(`track-${deckLower}-artist`).textContent = track.artists[0].name;
-      document.getElementById(`bpm-${deckLower}`).textContent = bpm || '--';
+      
+      if (bpm) {
+        document.getElementById(`bpm-${deckLower}`).textContent = bpm;
+      }
+    }
+
+    function updateProgress(deck = null, position = null, duration = null) {
+      if (deck && position !== null && duration) {
+        const progressPercent = (position / duration) * 100;
+        document.getElementById(`progress-${deck.toLowerCase()}`).style.width = progressPercent + '%';
+      }
+      
+      // Update current playing deck progress
+      if (player && currentDeck) {
+        player.getCurrentState().then(state => {
+          if (state) {
+            const progressPercent = (state.position / state.track_window.current_track.duration_ms) * 100;
+            document.getElementById(`progress-${currentDeck.toLowerCase()}`).style.width = progressPercent + '%';
+          }
+        });
+      }
     }
 
     function updateBeatMatch() {
@@ -705,7 +988,12 @@
 
     // Main Controls
     async function smartMix() {
-      if (mixInProgress) return;
+      if (mixInProgress || !deckA.track || !deckB.track) {
+        if (!deckB.track) {
+          showNotification('Load a track to Deck B first', 'error');
+        }
+        return;
+      }
       
       mixInProgress = true;
       const btn = document.getElementById('mix-btn');
@@ -713,41 +1001,35 @@
       btn.textContent = '🎛️ Mixing...';
       
       try {
-        // Load next track to Deck B if empty
-        if (!deckB.track) {
-          const queue = await spotifyRequest('/me/player/queue');
-          if (queue && queue.queue && queue.queue.length > 0) {
-            await loadToDeck('B', queue.queue[0]);
-          } else {
-            throw new Error('No tracks in queue');
-          }
-        }
+        showNotification('Starting AI mix...');
         
-        updateStatus('Mixing', 'mixing');
+        // Calculate mix point
+        const mixPoint = djAI.findOptimalMixPoint(deckA, deckB);
         
-        // Simple mix: skip to next track
-        await spotifyRequest('/me/player/next', { method: 'POST' });
+        // Start crossfade
+        await performCrossfade(mixPoint.mixDuration);
         
-        // Wait and update
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Switch to Deck B
+        await playTrack(deckB.uri);
+        currentDeck = 'B';
         
         // Swap decks
+        const tempDeck = deckA;
         deckA = deckB;
-        deckB = { track: null, bpm: 0 };
+        deckB = { track: null, bpm: 0, uri: null };
         
-        // Update display
+        // Update displays
         updateDeckDisplay('A', deckA.track, deckA.bpm);
         document.getElementById('track-b-name').textContent = 'No Track';
         document.getElementById('track-b-artist').textContent = 'Ready to queue';
         document.getElementById('bpm-b').textContent = '--';
+        document.getElementById('progress-b').style.width = '0%';
         
         updateBeatMatch();
-        updateStatus('Connected', 'success');
         showNotification('Mix complete!');
         
       } catch (error) {
         showNotification('Mix failed: ' + error.message, 'error');
-        updateStatus('Error', 'error');
       } finally {
         mixInProgress = false;
         btn.disabled = false;
@@ -755,29 +1037,55 @@
       }
     }
 
+    async function performCrossfade(duration) {
+      const steps = 50;
+      const stepDuration = duration / steps;
+      const crossfader = document.getElementById('crossfader');
+      
+      for (let i = 0; i <= steps; i++) {
+        const progress = i / steps;
+        const faderValue = progress * 100;
+        
+        crossfader.value = faderValue;
+        updateVolumes(faderValue);
+        
+        await new Promise(resolve => setTimeout(resolve, stepDuration));
+      }
+    }
+
+    function updateVolumes(crossfaderValue) {
+      if (!player) return;
+      
+      // Calculate volumes based on crossfader position
+      const volumeA = crossfaderValue <= 50 ? 1 : 2 - (crossfaderValue / 50);
+      const volumeB = crossfaderValue >= 50 ? 1 : crossfaderValue / 50;
+      
+      // Update volume sliders
+      document.getElementById('volume-a').value = volumeA * 100;
+      document.getElementById('volume-b').value = volumeB * 100;
+      
+      // Set actual player volume (for current playing deck)
+      const currentVolume = currentDeck === 'A' ? volumeA : volumeB;
+      player.setVolume(currentVolume);
+    }
+
     async function togglePlayPause() {
+      if (!player) return;
+      
       try {
-        const playback = await spotifyRequest('/me/player');
-        if (playback && playback.is_playing) {
-          await spotifyRequest('/me/player/pause', { method: 'PUT' });
-          isPlaying = false;
-        } else {
-          await spotifyRequest('/me/player/play', { method: 'PUT' });
-          isPlaying = true;
-        }
-        updatePlayButton();
+        await player.togglePlay();
       } catch (error) {
         showNotification('Playback control failed', 'error');
       }
     }
 
-    async function loadNextTrack() {
-      const queue = await spotifyRequest('/me/player/queue');
-      if (queue && queue.queue && queue.queue.length > 0) {
-        await loadToDeck('B', queue.queue[0]);
-        showNotification('Track loaded to Deck B');
-      } else {
-        showNotification('No tracks in queue', 'error');
+    async function skipTrack() {
+      if (!player) return;
+      
+      try {
+        await player.nextTrack();
+      } catch (error) {
+        showNotification('Skip failed', 'error');
       }
     }
 
@@ -790,10 +1098,40 @@
         btn.style.background = 'linear-gradient(135deg, #1db954, #1ed760)';
         status.textContent = 'ON';
         showNotification('Auto Mix enabled');
+        
+        // Start auto mix monitoring
+        if (autoMixInterval) clearInterval(autoMixInterval);
+        autoMixInterval = setInterval(checkAutoMix, 5000);
+        
       } else {
         btn.style.background = '';
         status.textContent = 'OFF';
         showNotification('Auto Mix disabled');
+        
+        if (autoMixInterval) {
+          clearInterval(autoMixInterval);
+          autoMixInterval = null;
+        }
+      }
+    }
+
+    let autoMixInterval = null;
+
+    async function checkAutoMix() {
+      if (!autoMixActive || mixInProgress || !deckA.track || !deckB.track) return;
+      
+      try {
+        const state = await player.getCurrentState();
+        if (!state) return;
+        
+        const timeLeft = state.track_window.current_track.duration_ms - state.position;
+        
+        // Start mix when 30 seconds left
+        if (timeLeft <= 30000 && timeLeft > 25000) {
+          await smartMix();
+        }
+      } catch (error) {
+        console.error('Auto mix check failed:', error);
       }
     }
 
@@ -803,26 +1141,26 @@
       btn.textContent = isPlaying ? '⏸️ Pause' : '▶️ Play';
     }
 
-    function updateStatus(message, type) {
-      const element = document.getElementById('system-status');
-      element.textContent = message;
-      element.className = `status-value ${type === 'error' ? 'error' : type === 'mixing' ? 'warning' : ''}`;
+    function updatePlayerStatus(status) {
+      document.getElementById('player-status').textContent = status;
     }
 
-    async function updateInterface() {
-      if (!accessToken) return;
-      
-      // Update current track if changed
-      const playback = await spotifyRequest('/me/player');
-      if (playback && playback.item && playback.item.id !== deckA.track?.id) {
-        await loadToDeck('A', playback.item);
+    // Event Listeners
+    document.getElementById('crossfader')?.addEventListener('input', (e) => {
+      updateVolumes(parseFloat(e.target.value));
+    });
+
+    document.getElementById('volume-a')?.addEventListener('input', (e) => {
+      if (currentDeck === 'A' && player) {
+        player.setVolume(e.target.value / 100);
       }
-      
-      if (playback) {
-        isPlaying = playback.is_playing;
-        updatePlayButton();
+    });
+
+    document.getElementById('volume-b')?.addEventListener('input', (e) => {
+      if (currentDeck === 'B' && player) {
+        player.setVolume(e.target.value / 100);
       }
-    }
+    });
 
     // Utility Functions
     function showLoading() {
@@ -844,6 +1182,9 @@
     }
 
     function logout() {
+      if (player) {
+        player.disconnect();
+      }
       accessToken = null;
       sessionStorage.clear();
       window.location.reload();
@@ -854,22 +1195,17 @@
       const storedToken = sessionStorage.getItem('access_token');
       if (storedToken) {
         accessToken = storedToken;
-        await initializeDJ();
+        if (window.Spotify) {
+          await initializePlayer();
+        }
       } else {
         await handleRedirect();
       }
     };
 
-    // Crossfader control
-    document.getElementById('crossfader')?.addEventListener('input', (e) => {
-      const value = e.target.value;
-      // Visual feedback only - real implementation would control audio
-      console.log(`Crossfader: ${value}%`);
-    });
-
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-      if (!accessToken) return;
+      if (!player) return;
       
       switch(e.code) {
         case 'Space':
@@ -883,6 +1219,16 @@
         case 'KeyA':
           e.preventDefault();
           toggleAutoMix();
+          break;
+        case 'Digit1':
+          e.preventDefault();
+          currentDeck = 'A';
+          showNotification('Deck A selected');
+          break;
+        case 'Digit2':
+          e.preventDefault();
+          currentDeck = 'B';
+          showNotification('Deck B selected');
           break;
       }
     });
