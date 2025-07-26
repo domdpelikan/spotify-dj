@@ -855,4 +855,311 @@
         beatDetector.recordSuccess(syncData.confidence);
         skipCount++;
         
-        showStatus(`⚡ Instant sync in ${totalTime}ms!`, '
+        showStatus(`⚡ Instant sync in ${totalTime}ms!`, 'connected');
+        updateStats();
+
+        // Update UI immediately
+        if (nextFeatures) {
+          document.getElementById('current-bpm').textContent = Math.round(nextFeatures.tempo);
+        }
+
+        // Visual feedback
+        document.getElementById('sync-indicator').textContent = seekApplied ? 'BEAT MATCHED' : 'SYNCED';
+        document.getElementById('sync-indicator').style.background = 'rgba(29, 185, 84, 0.5)';
+        
+        setTimeout(() => {
+          document.getElementById('sync-indicator').textContent = 'SYNCED';
+          document.getElementById('sync-indicator').style.background = 'rgba(29, 185, 84, 0.3)';
+        }, 1500);
+
+      } catch (error) {
+        console.error('Smart skip error:', error);
+        
+        // Fallback: simple skip
+        await spotifyRequest('/me/player/next', { method: 'POST' });
+        const fallbackTime = Math.round(performance.now() - skipStartTime);
+        syncDelays.push(fallbackTime);
+        skipCount++;
+        updateStats();
+        
+        showStatus(`✅ Skip completed in ${fallbackTime}ms`, 'connected');
+      } finally {
+        isProcessing = false;
+        document.getElementById('skip-btn').disabled = false;
+        setTimeout(() => {
+          manualSkipInProgress = false;
+        }, 2000);
+        
+        beatDetector.updatePerformanceStats();
+      }
+    }
+
+    // Enhanced external skip detection
+    async function handleExternalSkip(oldTrackId, newTrackId, lastKnownPosition) {
+      if (manualSkipInProgress || isProcessing) return;
+
+      const skipStartTime = performance.now();
+
+      try {
+        // Check for pre-calculated sync point
+        let syncData = beatDetector.queuePredictions.get(newTrackId);
+        
+        if (!syncData) {
+          // Quick calculation for external skips
+          const [oldFeatures, newFeatures] = await Promise.all([
+            beatDetector.getTrackFeatures(oldTrackId),
+            beatDetector.getTrackFeatures(newTrackId)
+          ]);
+          
+          if (oldFeatures && newFeatures) {
+            syncData = await beatDetector.findSyncPoint(
+              oldFeatures, 
+              newFeatures, 
+              lastKnownPosition
+            );
+          }
+        }
+        
+        if (syncData && syncData.position > 1000) {
+          // Apply ultra-fast seek
+          const seekPosition = Math.floor(syncData.position);
+          
+          // Multiple rapid attempts for fastest possible sync
+          await Promise.allSettled([
+            spotifyRequest(`/me/player/seek?position_ms=${seekPosition}`, { method: 'PUT' }),
+            new Promise(resolve => setTimeout(() => {
+              spotifyRequest(`/me/player/seek?position_ms=${seekPosition}`, { method: 'PUT' })
+                .then(resolve).catch(resolve);
+            }, 30))
+          ]);
+          
+          const totalTime = Math.round(performance.now() - skipStartTime);
+          syncDelays.push(totalTime);
+          if (syncDelays.length > 20) syncDelays.shift();
+          
+          beatDetector.recordSuccess(syncData.confidence);
+          skipCount++;
+          updateStats();
+          
+          showStatus(`🎯 Auto-synced in ${totalTime}ms!`, 'connected');
+          
+          // Update BPM display
+          const newFeatures = await beatDetector.getTrackFeatures(newTrackId);
+          if (newFeatures) {
+            document.getElementById('current-bpm').textContent = Math.round(newFeatures.tempo);
+          }
+        }
+        
+      } catch (error) {
+        console.error('External skip sync failed:', error);
+        showStatus('✅ Skip detected', 'connected');
+      }
+      
+      beatDetector.updatePerformanceStats();
+    }
+
+    // Enhanced playback monitoring with predictive caching
+    async function updatePlaybackInfo() {
+      try {
+        const playbackState = await getCurrentPlayback();
+        
+        if (!playbackState || !playbackState.item) {
+          document.getElementById('track-name').textContent = 'No Track Playing';
+          document.getElementById('track-artist').textContent = 'Start music in Spotify';
+          document.getElementById('track-progress').textContent = '0:00 / 0:00';
+          document.getElementById('play-btn').innerHTML = '▶️ Play';
+          document.getElementById('current-bpm').textContent = '--';
+          lastTrackId = null;
+          return;
+        }
+
+        const track = playbackState.item;
+        
+        // Update track info
+        document.getElementById('track-name').textContent = track.name;
+        document.getElementById('track-artist').textContent = track.artists.map(a => a.name).join(', ');
+        document.getElementById('track-progress').textContent = 
+          `${formatTime(playbackState.progress_ms)} / ${formatTime(track.duration_ms)}`;
+        document.getElementById('play-btn').innerHTML = playbackState.is_playing ? '⏸️ Pause' : '▶️ Play';
+
+        // Detect track changes (external skips)
+        if (lastTrackId && lastTrackId !== track.id && !manualSkipInProgress) {
+          console.log(`External skip detected: ${lastTrackId} -> ${track.id}`);
+          handleExternalSkip(lastTrackId, track.id, lastPosition);
+        }
+
+        // Update tracking variables
+        lastTrackId = track.id;
+        lastPosition = playbackState.progress_ms;
+
+        // Predictive queue analysis every 10 seconds or on track change
+        if (!currentTrack || currentTrack.id !== track.id || 
+            (Date.now() - (beatDetector.lastQueueUpdate || 0)) > 10000) {
+          
+          currentTrack = track;
+          beatDetector.lastQueueUpdate = Date.now();
+          
+          // Get queue and pre-calculate sync points
+          const queue = await getUserQueue();
+          if (queue?.queue?.length) {
+            // Batch fetch features for efficiency
+            const queueIds = queue.queue.slice(0, 10).map(t => t.id);
+            await beatDetector.batchFetchFeatures([track.id, ...queueIds]);
+            
+            // Predict sync points for upcoming tracks
+            await beatDetector.predictQueueSyncs(track.id, playbackState.progress_ms, queue.queue);
+          }
+          
+          // Get and display current track BPM
+          const features = await beatDetector.getTrackFeatures(track.id);
+          if (features) {
+            document.getElementById('current-bpm').textContent = Math.round(features.tempo);
+            updateAIStatus(`Track analyzed: ${Math.round(features.tempo)} BPM, ${queue?.queue?.length || 0} tracks cached`);
+          }
+        }
+
+        // Update beat visualizer
+        updateBeatVisualizer(playbackState.is_playing);
+
+      } catch (error) {
+        console.error('Update failed:', error);
+      }
+    }
+
+    async function togglePlayPause() {
+      try {
+        const playbackState = await getCurrentPlayback();
+        if (!playbackState) return;
+        
+        if (playbackState.is_playing) {
+          await spotifyRequest('/me/player/pause', { method: 'PUT' });
+        } else {
+          await spotifyRequest('/me/player/play', { method: 'PUT' });
+        }
+      } catch (error) {
+        showStatus('Playback control failed', 'disconnected');
+      }
+    }
+
+    // UI Update functions
+    function updateStats() {
+      document.getElementById('skip-count').textContent = skipCount;
+      const avgSuccess = beatDetector.getAverageSuccess();
+      document.getElementById('sync-quality').textContent = avgSuccess + '%';
+      
+      beatDetector.updatePerformanceStats();
+    }
+
+    function updateAIStatus(message) {
+      document.getElementById('ai-message').textContent = message;
+    }
+
+    function updateBeatVisualizer(isPlaying) {
+      const bars = document.querySelectorAll('.beat-bar');
+      bars.forEach(bar => {
+        bar.style.animationPlayState = isPlaying ? 'running' : 'paused';
+      });
+    }
+
+    // Utility functions
+    function formatTime(ms) {
+      const minutes = Math.floor(ms / 60000);
+      const seconds = Math.floor((ms % 60000) / 1000);
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function showStatus(message, type) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = `status ${type}`;
+    }
+
+    async function initializeApp() {
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('main-interface').style.display = 'block';
+      
+      showStatus('⚡ Ultra-fast Smart Beat Skip ready!', 'connected');
+      updateAIStatus('Predictive sync engine active - analyzing queue...');
+      
+      // Initialize audio context
+      await beatDetector.initAudioContext();
+      
+      // Start high-frequency monitoring for fastest response
+      updateInterval = setInterval(updatePlaybackInfo, 500); // 500ms for responsive caching
+      await updatePlaybackInfo();
+      
+      // Set initial stats
+      updateStats();
+      
+      // Initial queue analysis
+      setTimeout(async () => {
+        const queue = await getUserQueue();
+        if (queue?.queue?.length) {
+          const queueIds = queue.queue.slice(0, 15).map(t => t.id);
+          await beatDetector.batchFetchFeatures(queueIds);
+          updateAIStatus(`Ready! ${queueIds.length} tracks analyzed and cached.`);
+        }
+      }, 1000);
+    }
+
+    function logout() {
+      if (updateInterval) clearInterval(updateInterval);
+      accessToken = null;
+      sessionStorage.clear();
+      
+      document.getElementById('login-section').style.display = 'block';
+      document.getElementById('main-interface').style.display = 'none';
+      showStatus('Disconnected', 'disconnected');
+      
+      // Reset state
+      currentTrack = null;
+      skipCount = 0;
+      lastTrackId = null;
+      lastPosition = 0;
+      syncDelays = [];
+      predictiveCache.clear();
+      beatDetector = new UltraFastBeatDetector();
+    }
+
+    // Initialize on load
+    window.onload = async function() {
+      showStatus('Loading Ultra-fast Smart Beat Skip...', 'working');
+      
+      const storedToken = sessionStorage.getItem('access_token');
+      if (storedToken) {
+        accessToken = storedToken;
+        await initializeApp();
+      } else {
+        await handleRedirect();
+      }
+      
+      if (!accessToken) {
+        showStatus('Connect to Spotify to begin', 'disconnected');
+      }
+    };
+
+    // Enhanced keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (!accessToken) return;
+      
+      if (e.code === 'Space' && e.target.tagName !== 'BUTTON') {
+        e.preventDefault();
+        togglePlayPause();
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        smartSkip();
+      } else if (e.code === 'KeyS' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        smartSkip();
+      }
+    });
+
+    // Performance monitoring
+    setInterval(() => {
+      if (beatDetector) {
+        beatDetector.updatePerformanceStats();
+      }
+    }, 2000);
+  </script>
+</body>
+</html>
