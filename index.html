@@ -330,7 +330,8 @@
     const SCOPES = [
       'user-read-playback-state',
       'user-modify-playback-state',
-      'user-read-currently-playing'
+      'user-read-currently-playing',
+      'user-read-playback-position'
     ];
 
     // Global state
@@ -360,24 +361,37 @@
         }
 
         try {
+          console.log(`Fetching beat analysis for track: ${trackId}`);
           const analysis = await spotifyRequest(`/audio-analysis/${trackId}`);
-          if (analysis && analysis.beats) {
-            const processed = {
-              beats: analysis.beats.map((beat, i) => ({
-                start: beat.start * 1000, // Convert to ms
-                confidence: beat.confidence,
-                index: i
-              })),
-              duration: analysis.track.duration * 1000,
-              tempo: analysis.track.tempo
-            };
-            this.analysisCache.set(trackId, processed);
-            return processed;
+          
+          if (!analysis) {
+            console.error('No analysis data returned from Spotify');
+            return null;
           }
+          
+          if (!analysis.beats || analysis.beats.length === 0) {
+            console.error('Analysis returned but no beats found:', analysis);
+            return null;
+          }
+          
+          console.log(`Beat analysis successful: ${analysis.beats.length} beats found`);
+          
+          const processed = {
+            beats: analysis.beats.map((beat, i) => ({
+              start: beat.start * 1000, // Convert to ms
+              confidence: beat.confidence,
+              index: i
+            })),
+            duration: analysis.track.duration * 1000,
+            tempo: analysis.track.tempo
+          };
+          this.analysisCache.set(trackId, processed);
+          return processed;
         } catch (error) {
           console.error('Beat analysis failed:', error);
+          console.error('Track ID:', trackId);
+          return null;
         }
-        return null;
       }
 
       getCurrentBeat(analysis, positionMs) {
@@ -559,7 +573,24 @@
         });
 
         if (response.status === 204) return {};
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        if (!response.ok) {
+          const errorBody = await response.text();
+          console.error(`Spotify API error ${response.status}:`, errorBody);
+          
+          if (response.status === 404) {
+            console.error('Resource not found - this track might not have audio analysis available');
+          } else if (response.status === 403) {
+            console.error('Forbidden - check if your app has the required scopes');
+          } else if (response.status === 401) {
+            console.error('Unauthorized - token might be expired');
+            // Try to refresh or re-authenticate
+            sessionStorage.removeItem('access_token');
+            window.location.reload();
+          }
+          
+          throw new Error(`HTTP ${response.status}: ${errorBody}`);
+        }
         
         return await response.json();
       } catch (error) {
