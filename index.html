@@ -1202,6 +1202,9 @@
       document.getElementById('login-section').style.display = 'none';
       document.getElementById('main-interface').style.display = 'block';
       
+      // Check for active devices first
+      await checkActiveDevices();
+      
       showStatus('DJ System Ready', 'connected');
       
       // Try to load current track automatically
@@ -1210,8 +1213,38 @@
       // Initialize visualizers
       initializeVisualizers();
       
-      // Start monitoring
-      setInterval(updateDJInterface, 1000);
+      // Start monitoring (less frequent to avoid spam)
+      setInterval(updateDJInterface, 5000);
+    }
+
+    // Check for active Spotify devices
+    async function checkActiveDevices() {
+      debugLog('Checking for active Spotify devices');
+      try {
+        const devices = await spotifyRequest('/me/player/devices');
+        debugLog(`Found ${devices?.devices?.length || 0} devices`);
+        
+        if (!devices || !devices.devices || devices.devices.length === 0) {
+          showStatus('No Spotify devices found - Please open Spotify app', 'connected');
+          debugLog('No active devices found. User needs to open Spotify app or web player.');
+          return false;
+        }
+        
+        const activeDevice = devices.devices.find(d => d.is_active);
+        if (!activeDevice) {
+          showStatus('No active device - Please start playing music on Spotify', 'connected');
+          debugLog('Devices found but none are active. User needs to start playback.');
+          return false;
+        }
+        
+        debugLog(`Active device found: ${activeDevice.name} (${activeDevice.type})`);
+        showStatus(`Connected to ${activeDevice.name}`, 'connected');
+        return true;
+      } catch (error) {
+        debugLog(`Device check failed: ${error.message}`);
+        showStatus('Please open Spotify and start playing music', 'connected');
+        return false;
+      }
     }
 
     // New function to load current playing track
@@ -1220,7 +1253,22 @@
       showLoading();
       
       try {
+        // First check if we have active devices
+        const hasActiveDevice = await checkActiveDevices();
+        if (!hasActiveDevice) {
+          debugLog('No active device, skipping current track load');
+          await loadFallbackTracks();
+          return;
+        }
+
         const playback = await spotifyRequest('/me/player');
+        
+        if (playback === null) {
+          debugLog('Playback request returned null (likely 403 error)');
+          await loadFallbackTracks();
+          return;
+        }
+        
         debugLog(`Playback state: ${JSON.stringify(playback?.item?.name || 'No current track')}`);
         
         if (playback && playback.item && playback.item.id) {
@@ -1228,14 +1276,60 @@
           await loadToDeck('A', playback.item);
           showStatus('Current track loaded', 'connected');
         } else {
-          debugLog('No current track playing, trying recent tracks');
-          await loadRecentTracks();
+          debugLog('No current track playing, trying fallback');
+          await loadFallbackTracks();
         }
       } catch (error) {
         debugLog(`Failed to load current track: ${error.message}`);
-        showStatus('No current track - load manually', 'connected');
+        await loadFallbackTracks();
       } finally {
         hideLoading();
+      }
+    }
+
+    // Load tracks when player API is not available
+    async function loadFallbackTracks() {
+      debugLog('Loading fallback tracks (player API not available)');
+      
+      try {
+        // Try recent tracks first
+        const recent = await spotifyRequest('/me/player/recently-played?limit=5');
+        if (recent && recent.items && recent.items.length > 0) {
+          const track = recent.items[0].track;
+          debugLog(`Loading recent track: ${track.name}`);
+          await loadToDeck('A', track);
+          
+          // Load second recent track to deck B if available
+          if (recent.items.length > 1) {
+            await loadToDeck('B', recent.items[1].track);
+          }
+          
+          showStatus('Recent tracks loaded (Player mode disabled)', 'connected');
+          return;
+        }
+
+        // If no recent tracks, try top tracks
+        const topTracks = await spotifyRequest('/me/top/tracks?limit=5&time_range=short_term');
+        if (topTracks && topTracks.items && topTracks.items.length > 0) {
+          const track = topTracks.items[0];
+          debugLog(`Loading top track: ${track.name}`);
+          await loadToDeck('A', track);
+          
+          // Load second top track to deck B if available
+          if (topTracks.items.length > 1) {
+            await loadToDeck('B', topTracks.items[1]);
+          }
+          
+          showStatus('Top tracks loaded (Player mode disabled)', 'connected');
+          return;
+        }
+
+        debugLog('No tracks available in any fallback method');
+        showStatus('No tracks available - Please play music on Spotify first', 'connected');
+        
+      } catch (error) {
+        debugLog(`Fallback loading failed: ${error.message}`);
+        showStatus('Please open Spotify and play some music', 'connected');
       }
     }
 
@@ -1346,8 +1440,14 @@
 
     // Enhanced Smart Mix Function
     async function smartMix() {
-      if (mixInProgress || !deckA.track || !deckA.analysis) {
-        debugLog('Cannot mix - requirements not met');
+      if (mixInProgress) {
+        debugLog('Mix already in progress');
+        return;
+      }
+
+      if (!deckA.track || !deckA.analysis) {
+        debugLog('Cannot mix - Deck A not loaded');
+        showStatus('Load a track to Deck A first', 'connected');
         return;
       }
       
@@ -1359,12 +1459,19 @@
         // Load next track to Deck B if empty
         if (!deckB.track) {
           debugLog('Deck B empty, loading next track');
-          const queue = await spotifyRequest('/me/player/queue');
-          if (queue?.queue?.length > 0) {
-            await loadToDeck('B', queue.queue[0]);
+          
+          // Check if we can use player API
+          const hasActiveDevice = await checkActiveDevices();
+          if (hasActiveDevice) {
+            const queue = await spotifyRequest('/me/player/queue');
+            if (queue?.queue?.length > 0) {
+              await loadToDeck('B', queue.queue[0]);
+            } else {
+              await loadFallbackTracks();
+            }
           } else {
-            // Try to get a recommended track
-            await loadRecentTracks();
+            // Use recent/top tracks as fallback
+            await loadAlternativeTrack();
           }
         }
         
@@ -1372,12 +1479,17 @@
           throw new Error('No track available for Deck B');
         }
         
-        // Simple mix - just skip to next track
-        debugLog('Performing track skip');
-        await spotifyRequest('/me/player/next', { method: 'POST' });
-        
-        // Wait for track change
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Try to use player API if available
+        const hasActiveDevice = await checkActiveDevices();
+        if (hasActiveDevice) {
+          debugLog('Using Spotify player for mix');
+          await spotifyRequest('/me/player/next', { method: 'POST' });
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } else {
+          debugLog('Simulating mix without player API');
+          // Simulate a mix transition
+          await simulateMixTransition();
+        }
         
         // Swap decks
         const tempDeck = deckA;
@@ -1393,10 +1505,71 @@
         
       } catch (error) {
         debugLog(`Mix failed: ${error.message}`);
-        showStatus('Mix failed - skipping normally', 'connected');
-        await spotifyRequest('/me/player/next', { method: 'POST' });
+        showStatus('Mix simulated (no active player)', 'connected');
+        
+        // Still perform deck swap for demo purposes
+        if (deckB.track) {
+          const tempDeck = deckA;
+          deckA = deckB;
+          deckB = { track: null, analysis: null, volume: 0, eq: { high: 0, mid: 0, low: 0 } };
+          updateDeckDisplay('A', deckA.track, deckA.analysis);
+          clearDeckDisplay('B');
+        }
       } finally {
         mixInProgress = false;
+      }
+    }
+
+    // Simulate mix transition for demo purposes
+    async function simulateMixTransition() {
+      debugLog('Simulating crossfader transition');
+      
+      // Animate crossfader
+      for (let i = 0; i <= 100; i += 5) {
+        updateCrossfader(i);
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
+      // Reset crossfader
+      updateCrossfader(0);
+    }
+
+    // Load alternative track when player API not available
+    async function loadAlternativeTrack() {
+      debugLog('Loading alternative track for Deck B');
+      
+      try {
+        // Try to get a different recent track
+        const recent = await spotifyRequest('/me/player/recently-played?limit=10');
+        if (recent && recent.items && recent.items.length > 1) {
+          // Find a track that's not currently on Deck A
+          const alternativeTrack = recent.items.find(item => 
+            item.track.id !== deckA.track.id
+          );
+          
+          if (alternativeTrack) {
+            await loadToDeck('B', alternativeTrack.track);
+            return;
+          }
+        }
+
+        // Fallback to top tracks
+        const topTracks = await spotifyRequest('/me/top/tracks?limit=10&time_range=short_term');
+        if (topTracks && topTracks.items && topTracks.items.length > 0) {
+          const alternativeTrack = topTracks.items.find(track => 
+            track.id !== deckA.track.id
+          );
+          
+          if (alternativeTrack) {
+            await loadToDeck('B', alternativeTrack);
+            return;
+          }
+        }
+
+        debugLog('No alternative tracks found');
+        
+      } catch (error) {
+        debugLog(`Failed to load alternative track: ${error.message}`);
       }
     }
 
@@ -1454,13 +1627,33 @@
 
     async function togglePlayPause() {
       debugLog('Toggling play/pause');
-      const playback = await spotifyRequest('/me/player');
-      if (playback?.is_playing) {
-        await spotifyRequest('/me/player/pause', { method: 'PUT' });
-        debugLog('Paused playback');
-      } else {
-        await spotifyRequest('/me/player/play', { method: 'PUT' });
-        debugLog('Started playback');
+      
+      // Check if we have an active device first
+      const hasActiveDevice = await checkActiveDevices();
+      if (!hasActiveDevice) {
+        showStatus('No active Spotify device - Please open Spotify app', 'connected');
+        return;
+      }
+      
+      try {
+        const playback = await spotifyRequest('/me/player');
+        if (playback === null) {
+          showStatus('Cannot control playback - Please start playing on Spotify', 'connected');
+          return;
+        }
+        
+        if (playback?.is_playing) {
+          await spotifyRequest('/me/player/pause', { method: 'PUT' });
+          debugLog('Paused playback');
+          showStatus('Paused', 'connected');
+        } else {
+          await spotifyRequest('/me/player/play', { method: 'PUT' });
+          debugLog('Started playback');
+          showStatus('Playing', 'connected');
+        }
+      } catch (error) {
+        debugLog(`Play/pause failed: ${error.message}`);
+        showStatus('Cannot control playback - Check Spotify app', 'connected');
       }
     }
 
@@ -1514,20 +1707,39 @@
     }
 
     async function updateDJInterface() {
-      // Update playback progress
-      const playback = await spotifyRequest('/me/player');
-      if (playback && playback.item) {
-        // Update waveform position
-        const progress = playback.progress_ms / playback.item.duration_ms;
-        const waveformA = document.getElementById('waveform-a');
-        if (waveformA) {
-          waveformA.style.transform = `translateX(${-progress * 100}%)`;
+      // Only update if we have an active device (avoid spam of 403 errors)
+      const hasActiveDevice = await checkActiveDevices();
+      if (!hasActiveDevice) {
+        return; // Skip update if no active device
+      }
+      
+      try {
+        // Update playback progress
+        const playback = await spotifyRequest('/me/player');
+        if (playback && playback.item) {
+          // Update waveform position
+          const progress = playback.progress_ms / playback.item.duration_ms;
+          const waveformA = document.getElementById('waveform-a');
+          if (waveformA) {
+            waveformA.style.transform = `translateX(${-progress * 100}%)`;
+          }
+          
+          // Update play button
+          const playBtn = document.getElementById('play-btn');
+          if (playBtn) {
+            playBtn.textContent = playback.is_playing ? '⏸️ PAUSE' : '▶️ PLAY';
+          }
+          
+          // Update status if track changed
+          if (playback.item.id !== deckA.track?.id) {
+            debugLog('Track changed, updating Deck A');
+            await loadToDeck('A', playback.item);
+          }
         }
-        
-        // Update play button
-        const playBtn = document.getElementById('play-btn');
-        if (playBtn) {
-          playBtn.textContent = playback.is_playing ? '⏸️ PAUSE' : '▶️ PLAY';
+      } catch (error) {
+        // Silently handle errors to avoid spam
+        if (debugMode) {
+          debugLog(`Interface update failed: ${error.message}`);
         }
       }
     }
