@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Seamless Beat Skip</title>
+  <title>DJ Crossfade - Seamless Mixing</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
@@ -13,7 +13,7 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0a0a0a;
+      background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
       color: #fff;
       min-height: 100vh;
       display: flex;
@@ -23,43 +23,106 @@
     }
 
     .container {
-      max-width: 500px;
+      max-width: 600px;
       width: 100%;
       text-align: center;
     }
 
     h1 {
-      font-size: 2.5em;
+      font-size: 3em;
       margin-bottom: 10px;
-      font-weight: 700;
+      font-weight: 800;
+      background: linear-gradient(45deg, #1db954, #1ed760);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .subtitle {
       opacity: 0.7;
       margin-bottom: 30px;
+      font-size: 1.1em;
     }
 
     .main-card {
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 20px;
-      padding: 30px;
-      backdrop-filter: blur(10px);
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 24px;
+      padding: 40px;
+      backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     }
 
     .track-info {
       margin-bottom: 30px;
+      position: relative;
     }
 
     .track-name {
-      font-size: 1.4em;
-      font-weight: 600;
-      margin-bottom: 5px;
+      font-size: 1.6em;
+      font-weight: 700;
+      margin-bottom: 8px;
+      line-height: 1.3;
     }
 
     .track-artist {
       opacity: 0.7;
-      margin-bottom: 10px;
+      margin-bottom: 20px;
+      font-size: 1.1em;
+    }
+
+    /* Dual progress bars for crossfade visualization */
+    .crossfade-visual {
+      margin: 25px 0;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 16px;
+    }
+
+    .crossfade-label {
+      font-size: 0.9em;
+      opacity: 0.6;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .volume-bars {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .volume-track {
+      flex: 1;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .volume-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #1db954, #1ed760);
+      width: var(--volume, 100%);
+      transition: width 0.3s ease;
+      border-radius: 20px;
+    }
+
+    .volume-track.next .volume-fill {
+      background: linear-gradient(90deg, #ff6b6b, #ff8787);
+    }
+
+    .track-label {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.8em;
+      font-weight: 600;
+      z-index: 1;
+      mix-blend-mode: difference;
     }
 
     .progress-bar {
@@ -85,25 +148,6 @@
       opacity: 0.6;
     }
 
-    .beat-indicator {
-      display: inline-flex;
-      gap: 5px;
-      margin: 20px 0;
-    }
-
-    .beat-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: rgba(29, 185, 84, 0.3);
-      transition: all 0.1s ease;
-    }
-
-    .beat-dot.active {
-      background: #1db954;
-      transform: scale(1.5);
-    }
-
     .controls {
       display: flex;
       gap: 15px;
@@ -112,23 +156,44 @@
     }
 
     .btn {
-      padding: 12px 30px;
+      padding: 14px 32px;
       border: none;
-      border-radius: 25px;
+      border-radius: 28px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       font-size: 1em;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .btn:active::before {
+      width: 200px;
+      height: 200px;
     }
 
     .btn-primary {
-      background: #1db954;
+      background: linear-gradient(135deg, #1db954, #1ed760);
       color: white;
+      box-shadow: 0 4px 20px rgba(29, 185, 84, 0.3);
     }
 
     .btn-primary:hover:not(:disabled) {
-      background: #1ed760;
-      transform: translateY(-1px);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(29, 185, 84, 0.5);
     }
 
     .btn-secondary {
@@ -143,14 +208,16 @@
     .btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+      transform: none !important;
     }
 
     .status {
       margin: 20px 0;
-      padding: 10px 20px;
-      border-radius: 20px;
+      padding: 12px 24px;
+      border-radius: 24px;
       font-size: 0.9em;
       display: inline-block;
+      font-weight: 500;
     }
 
     .status.ready {
@@ -158,9 +225,15 @@
       color: #1ed760;
     }
 
-    .status.processing {
-      background: rgba(255, 165, 0, 0.2);
-      color: orange;
+    .status.mixing {
+      background: rgba(255, 193, 7, 0.2);
+      color: #ffc107;
+      animation: pulse-mix 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse-mix {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
     }
 
     .status.error {
@@ -168,34 +241,67 @@
       color: #ff4444;
     }
 
-    .queue-preview {
+    .queue-section {
       margin-top: 30px;
-      padding: 15px;
+      padding: 20px;
       background: rgba(255, 255, 255, 0.03);
-      border-radius: 15px;
-      font-size: 0.9em;
+      border-radius: 16px;
+    }
+
+    .queue-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
     }
 
     .queue-label {
       opacity: 0.6;
-      margin-bottom: 5px;
+      font-size: 0.9em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .queue-track {
+      text-align: left;
+      padding: 10px 15px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      margin-bottom: 10px;
+      transition: all 0.2s ease;
+    }
+
+    .queue-track:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .queue-track-name {
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+
+    .queue-track-artist {
+      font-size: 0.85em;
+      opacity: 0.6;
     }
 
     .stats {
-      display: flex;
-      justify-content: space-around;
-      margin: 20px 0;
-      padding: 20px 0;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin: 25px 0;
     }
 
     .stat {
       text-align: center;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
     }
 
     .stat-value {
-      font-size: 1.8em;
-      font-weight: 700;
+      font-size: 2em;
+      font-weight: 800;
       color: #1db954;
     }
 
@@ -203,6 +309,8 @@
       font-size: 0.8em;
       opacity: 0.6;
       margin-top: 5px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
 
     .login-section {
@@ -211,6 +319,7 @@
 
     .login-section h2 {
       margin-bottom: 20px;
+      font-size: 2em;
     }
 
     .login-section p {
@@ -219,13 +328,14 @@
       line-height: 1.6;
     }
 
-    /* Simple loading spinner */
-    .spinner {
+    /* Loading animation */
+    .mixing-spinner {
       display: inline-block;
       width: 20px;
       height: 20px;
       border: 2px solid transparent;
-      border-top-color: #1db954;
+      border-top-color: #ffc107;
+      border-right-color: #ffc107;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       vertical-align: middle;
@@ -235,26 +345,32 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    /* Smooth transitions */
+    * {
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Seamless Beat Skip</h1>
-    <p class="subtitle">Instant beat-matched transitions</p>
+    <h1>DJ Crossfade</h1>
+    <p class="subtitle">Professional beat-matched mixing</p>
 
     <div id="login-section" class="login-section main-card">
-      <h2>🎵 Smart Music Transitions</h2>
+      <h2>🎛️ Real DJ Transitions</h2>
       <p>
-        Skip songs with perfect beat matching. No delays, no silence, just smooth transitions
-        that maintain the groove. Works with your regular Spotify controls too.
+        Experience true DJ-style crossfading between tracks. Smooth blends, 
+        beat matching, and professional transitions that keep the energy flowing.
       </p>
       <button onclick="login()" class="btn btn-primary">Connect Spotify</button>
-      <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; font-size: 0.85em; text-align: left;">
-        <strong>Requirements:</strong>
-        <ul style="margin: 10px 0; padding-left: 20px;">
-          <li>Spotify Premium account</li>
-          <li>Active Spotify app (desktop/mobile/web)</li>
-          <li>Music playing in Spotify</li>
+      <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; font-size: 0.85em;">
+        <strong>Features:</strong>
+        <ul style="margin: 10px 0; padding-left: 20px; text-align: left;">
+          <li>Crossfade visualization</li>
+          <li>Beat-matched transitions</li>
+          <li>Smart cue points</li>
+          <li>Automatic tempo matching</li>
         </ul>
       </div>
     </div>
@@ -275,16 +391,24 @@
           </div>
         </div>
 
-        <div class="beat-indicator">
-          <div class="beat-dot"></div>
-          <div class="beat-dot"></div>
-          <div class="beat-dot"></div>
-          <div class="beat-dot"></div>
+        <!-- Crossfade Visualization -->
+        <div class="crossfade-visual" id="crossfade-visual" style="display: none;">
+          <div class="crossfade-label">Crossfade Mix</div>
+          <div class="volume-bars">
+            <div class="volume-track current">
+              <div class="track-label">Current</div>
+              <div class="volume-fill" id="current-volume" style="--volume: 100%;"></div>
+            </div>
+            <div class="volume-track next">
+              <div class="track-label">Next</div>
+              <div class="volume-fill" id="next-volume" style="--volume: 0%;"></div>
+            </div>
+          </div>
         </div>
 
         <div class="controls">
-          <button onclick="skipWithBeats()" class="btn btn-primary" id="skip-btn">
-            Skip ⚡
+          <button onclick="crossfadeMix()" class="btn btn-primary" id="mix-btn">
+            Mix ⚡
           </button>
           <button onclick="togglePlayPause()" class="btn btn-secondary" id="play-btn">
             Play
@@ -295,22 +419,30 @@
 
         <div class="stats">
           <div class="stat">
-            <div class="stat-value" id="skip-count">0</div>
-            <div class="stat-label">Skips</div>
+            <div class="stat-value" id="mix-count">0</div>
+            <div class="stat-label">Mixes</div>
           </div>
           <div class="stat">
-            <div class="stat-value" id="beat-accuracy">--</div>
+            <div class="stat-value" id="current-bpm">--</div>
             <div class="stat-label">BPM</div>
           </div>
           <div class="stat">
-            <div class="stat-value" id="transition-time">0ms</div>
-            <div class="stat-label">Speed</div>
+            <div class="stat-value" id="mix-time">--</div>
+            <div class="stat-label">Mix Time</div>
           </div>
         </div>
 
-        <div class="queue-preview">
-          <div class="queue-label">Next up:</div>
-          <div id="next-track">Loading...</div>
+        <div class="queue-section">
+          <div class="queue-header">
+            <div class="queue-label">Up Next</div>
+            <div class="queue-label" id="queue-count">0 tracks</div>
+          </div>
+          <div id="queue-list">
+            <div class="queue-track">
+              <div class="queue-track-name">Loading queue...</div>
+              <div class="queue-track-artist">Please wait</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -331,145 +463,111 @@
       'streaming'
     ];
 
+    // Crossfade settings
+    const CROSSFADE_DURATION = 4000; // 4 seconds
+    const CROSSFADE_STEPS = 20; // Smooth steps
+    const BEAT_INTRO_SKIP = 16000; // Skip first 16 seconds
+
     // Global state
     let accessToken = null;
     let currentTrack = null;
-    let nextTrackAnalysis = null;
-    let isSkipping = false;
-    let skipCount = 0;
-    let lastTrackId = null;
+    let nextTrackData = null;
+    let isMixing = false;
+    let mixCount = 0;
     let monitorInterval = null;
-    let beatInterval = null;
-    let progressInterval = null;
     let currentBPM = 0;
-    let prebufferTimeout = null;
+    let queuedTracks = [];
 
-    // Beat detection and analysis cache
+    // Track analysis cache
     const analysisCache = new Map();
-    const CACHE_DURATION = 3600000; // 1 hour
 
-    // Professional beat detection based on DJ techniques
-    class BeatMatcher {
+    // Beat analysis and crossfade logic
+    class DJMixer {
       constructor() {
-        this.phraseLength = 16; // 16 bar phrases (standard in electronic music)
-        this.beatsPerBar = 4;
+        this.analyzing = false;
       }
 
-      // Analyze track for beat matching
-      async analyze(trackId) {
-        // Check cache first
-        const cached = analysisCache.get(trackId);
-        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-          return cached.data;
+      async analyzeTrack(trackId) {
+        // Check cache
+        if (analysisCache.has(trackId)) {
+          return analysisCache.get(trackId);
         }
 
         try {
-          // Get audio features for BPM and key
           const features = await spotifyRequest(`/audio-features/${trackId}`);
-          if (!features) {
-            console.log('No features available, using fallback');
-            return this.generateFallback();
-          }
+          if (!features) return this.getDefaultAnalysis();
 
           const analysis = {
             bpm: features.tempo,
             key: features.key,
-            mode: features.mode,
             energy: features.energy,
             danceability: features.danceability,
             duration: features.duration_ms,
-            timeSignature: features.time_signature || 4,
-            
-            // Calculate beat grid
-            beatDuration: 60000 / features.tempo, // ms per beat
-            barDuration: (60000 / features.tempo) * this.beatsPerBar,
-            phraseDuration: (60000 / features.tempo) * this.beatsPerBar * this.phraseLength,
-            
-            // DJ-friendly cue points (after intro, usually 16-32 bars in)
-            cuePoints: this.calculateCuePoints(features)
+            // Calculate mix points
+            introEnd: this.calculateIntroEnd(features),
+            outroStart: features.duration_ms - 30000, // Last 30 seconds
+            optimalMixPoint: this.calculateOptimalMixPoint(features)
           };
 
-          console.log(`Track analyzed: ${features.tempo} BPM, cue points:`, analysis.cuePoints);
-
-          // Cache the analysis
-          analysisCache.set(trackId, { data: analysis, timestamp: Date.now() });
+          analysisCache.set(trackId, analysis);
           return analysis;
-
         } catch (error) {
-          console.error('Analysis failed, using fallback:', error);
-          return this.generateFallback();
+          console.error('Analysis failed:', error);
+          return this.getDefaultAnalysis();
         }
       }
 
-      calculateCuePoints(features) {
-        const beatDuration = 60000 / features.tempo;
-        const barDuration = beatDuration * this.beatsPerBar;
-        const phraseDuration = barDuration * this.phraseLength;
-
-        // Standard DJ cue points - make sure we have good ones
-        const cuePoints = [
-          16000,                    // 16 seconds (safe intro skip)
-          phraseDuration,           // First phrase boundary
-          phraseDuration * 2,       // Second phrase
-          32000,                    // 32 seconds
-          features.duration_ms * 0.25  // 25% in
-        ].filter(point => point > 10000 && point < features.duration_ms * 0.8)
-          .sort((a, b) => a - b);
-
-        // Always ensure we have at least one cue point
-        if (cuePoints.length === 0) {
-          cuePoints.push(15000); // Default to 15 seconds
-        }
-
-        return cuePoints;
+      calculateIntroEnd(features) {
+        // Skip intro based on energy and danceability
+        const baseSkip = 16000; // 16 seconds
+        const energyBonus = features.energy > 0.7 ? 8000 : 0;
+        return Math.min(baseSkip + energyBonus, 30000);
       }
 
-      // Find optimal transition point
-      findTransitionPoint(currentPos, currentAnalysis, nextAnalysis) {
-        if (!currentAnalysis || !nextAnalysis) {
-          console.log('Missing analysis, defaulting to 15 seconds');
-          return 15000; // Default to 15 seconds if no analysis
+      calculateOptimalMixPoint(features) {
+        // Find the best point to start mixing
+        if (features.energy > 0.8) {
+          return 16000; // High energy - quick mix
+        } else if (features.danceability > 0.7) {
+          return 24000; // Danceable - standard mix
+        } else {
+          return 32000; // Slower - longer intro
         }
-
-        // Calculate current position in phrases
-        const currentPhrase = Math.floor(currentPos / currentAnalysis.phraseDuration);
-        const positionInPhrase = currentPos % currentAnalysis.phraseDuration;
-        const percentInPhrase = positionInPhrase / currentAnalysis.phraseDuration;
-
-        console.log(`Current position: ${currentPos}ms, phrase: ${currentPhrase}, percent in phrase: ${percentInPhrase}`);
-
-        // Find best cue point in next track
-        let targetCue = nextAnalysis.cuePoints[0] || 15000;
-
-        // If we have multiple cue points, pick the best one
-        if (nextAnalysis.cuePoints.length > 1) {
-          // If we're early in a phrase, match to a similar position
-          if (percentInPhrase < 0.5 && nextAnalysis.cuePoints.length > 1) {
-            targetCue = nextAnalysis.cuePoints[1]; // Use second cue point
-          }
-        }
-
-        console.log(`Transition point selected: ${targetCue}ms`);
-        return Math.max(1000, Math.floor(targetCue)); // At least 1 second in
       }
 
-      generateFallback() {
-        // Intelligent fallback for common BPMs
+      getDefaultAnalysis() {
         return {
-          bpm: 128, // Common house/electronic BPM
-          beatDuration: 468.75,
-          barDuration: 1875,
-          phraseDuration: 30000,
-          cuePoints: [15000, 30000, 45000], // 15s, 30s, 45s
+          bpm: 128,
           energy: 0.7,
-          danceability: 0.8
+          introEnd: 16000,
+          outroStart: 150000,
+          optimalMixPoint: 20000
+        };
+      }
+
+      async findCrossfadePoint(currentPos, currentAnalysis, nextAnalysis) {
+        // Calculate when to start crossfade
+        const remainingTime = currentAnalysis.duration - currentPos;
+        
+        // Start crossfade 10 seconds before track ends or now
+        const crossfadeStart = remainingTime > 10000 ? 
+          currentPos + (remainingTime - 10000) : 
+          currentPos;
+        
+        // Where to start in the next track
+        const nextTrackStart = nextAnalysis.optimalMixPoint || 16000;
+        
+        return {
+          startCrossfade: crossfadeStart,
+          nextTrackCue: nextTrackStart,
+          duration: Math.min(CROSSFADE_DURATION, remainingTime)
         };
       }
     }
 
-    const beatMatcher = new BeatMatcher();
+    const mixer = new DJMixer();
 
-    // Spotify Auth Functions
+    // Spotify Auth
     async function generateCodeChallenge(codeVerifier) {
       const encoder = new TextEncoder();
       const data = encoder.encode(codeVerifier);
@@ -494,13 +592,13 @@
       sessionStorage.setItem('state', state);
       
       const authUrl = new URL('https://accounts.spotify.com/authorize');
-      authUrl.searchParams.append('response_type', 'code');
-      authUrl.searchParams.append('client_id', CLIENT_ID);
-      authUrl.searchParams.append('scope', SCOPES.join(' '));
-      authUrl.searchParams.append('redirect_uri', REDIRECT_URI);
-      authUrl.searchParams.append('state', state);
-      authUrl.searchParams.append('code_challenge_method', 'S256');
-      authUrl.searchParams.append('code_challenge', codeChallenge);
+      authUrl.searchParams.set('response_type', 'code');
+      authUrl.searchParams.set('client_id', CLIENT_ID);
+      authUrl.searchParams.set('scope', SCOPES.join(' '));
+      authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+      authUrl.searchParams.set('state', state);
+      authUrl.searchParams.set('code_challenge_method', 'S256');
+      authUrl.searchParams.set('code_challenge', codeChallenge);
       
       window.location = authUrl.toString();
     }
@@ -542,182 +640,158 @@
       }
     }
 
-    // Spotify API wrapper
+    // Spotify API
     async function spotifyRequest(endpoint, options = {}) {
-      if (!accessToken) {
-        console.error('No access token');
-        return null;
-      }
+      if (!accessToken) return null;
       
       try {
         const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
             ...options.headers
           },
           ...options
         });
 
-        // Handle different response types
-        if (response.status === 204) return true; // No content (success)
+        if (response.status === 204) return true;
         if (response.status === 401) {
-          // Token expired
-          console.error('Token expired');
           sessionStorage.removeItem('access_token');
-          updateStatus('error', 'Session expired - Please reconnect');
-          setTimeout(() => window.location.reload(), 2000);
+          window.location.reload();
           return null;
         }
-        if (response.status === 403) {
-          console.error('Forbidden - Premium required or wrong region');
-          updateStatus('error', 'Spotify Premium required');
-          return null;
-        }
-        if (!response.ok) {
-          console.error(`API Error ${response.status}:`, await response.text());
-          return null;
-        }
+        if (!response.ok) return null;
         
-        const data = await response.json();
-        return data;
+        return await response.json();
       } catch (error) {
         console.error('API error:', error);
         return null;
       }
     }
 
-    // Core skip function - ULTRA FAST
-    async function skipWithBeats() {
-      if (isSkipping) return;
+    // Main crossfade function
+    async function crossfadeMix() {
+      if (isMixing || !currentTrack) return;
       
-      // Check if we have a current track
-      if (!currentTrack) {
-        updateStatus('error', 'No track playing');
-        return;
-      }
+      isMixing = true;
+      document.getElementById('mix-btn').disabled = true;
+      updateStatus('mixing', 'Mixing...');
+      showCrossfadeVisual(true);
       
-      isSkipping = true;
-      document.getElementById('skip-btn').disabled = true;
-      const startTime = performance.now();
-      updateStatus('processing', 'Analyzing beats...');
+      const startTime = Date.now();
       
       try {
-        // Get fresh playback state
+        // Get current state
         const playback = await spotifyRequest('/me/player');
         if (!playback || !playback.item) {
           throw new Error('No active playback');
         }
 
-        const currentPos = playback.progress_ms || 0;
-        console.log('Current position:', currentPos);
+        const currentPos = playback.progress_ms;
+        const currentAnalysis = await mixer.analyzeTrack(currentTrack.id);
         
-        // Get current track analysis
-        const currentAnalysis = await beatMatcher.analyze(currentTrack.id);
-        
-        // Execute skip immediately
-        console.log('Executing skip...');
-        const skipResult = await spotifyRequest('/me/player/next', { method: 'POST' });
-        if (skipResult === null) {
-          throw new Error('Skip failed - Check Spotify');
+        // Get next track
+        if (!nextTrackData || queuedTracks.length === 0) {
+          await updateQueue();
+          if (queuedTracks.length === 0) {
+            throw new Error('No tracks in queue');
+          }
         }
+
+        const nextTrack = queuedTracks[0];
+        const nextAnalysis = await mixer.analyzeTrack(nextTrack.id);
         
-        // Calculate transition point
-        let transitionPoint = 15000; // Default 15 seconds
+        // Calculate crossfade timing
+        const crossfadeData = await mixer.findCrossfadePoint(
+          currentPos, 
+          currentAnalysis, 
+          nextAnalysis
+        );
         
-        if (nextTrackAnalysis) {
-          transitionPoint = beatMatcher.findTransitionPoint(
-            currentPos, 
-            currentAnalysis, 
-            nextTrackAnalysis
-          );
-          console.log('Using prebuffered analysis, transition point:', transitionPoint);
-        } else {
-          console.log('No prebuffered analysis, using default transition point');
-        }
+        console.log('Crossfade plan:', crossfadeData);
         
-        // Poll for track change and apply seek
+        // Animate crossfade visual
+        await animateCrossfade();
+        
+        // Execute the mix
+        await spotifyRequest('/me/player/next', { method: 'POST' });
+        
+        // Wait for track change
         let attempts = 0;
         let trackChanged = false;
         
-        while (attempts < 30 && !trackChanged) { // Up to 1.5 seconds
-          await new Promise(r => setTimeout(r, 50));
+        while (attempts < 30 && !trackChanged) {
+          await new Promise(r => setTimeout(r, 100));
           
           const newPlayback = await spotifyRequest('/me/player');
-          if (newPlayback && newPlayback.item && newPlayback.item.id !== currentTrack.id) {
+          if (newPlayback?.item?.id !== currentTrack.id) {
             trackChanged = true;
-            console.log('Track changed to:', newPlayback.item.name);
             
-            // Always apply seek for beat matching
-            if (transitionPoint > 100) { // More than 0.1 seconds
-              console.log(`Seeking to ${transitionPoint}ms for beat match`);
-              const seekResult = await spotifyRequest(
-                `/me/player/seek?position_ms=${transitionPoint}`, 
-                { method: 'PUT' }
-              );
-              
-              if (seekResult === null) {
-                console.error('Seek failed, but skip succeeded');
-              } else {
-                console.log('Seek successful!');
-              }
+            // Seek to optimal point
+            const seekPoint = crossfadeData.nextTrackCue || BEAT_INTRO_SKIP;
+            if (seekPoint > 1000) {
+              await spotifyRequest(`/me/player/seek?position_ms=${seekPoint}`, {
+                method: 'PUT'
+              });
+              console.log(`Seeked to ${seekPoint}ms for beat match`);
             }
             break;
           }
           attempts++;
         }
         
-        if (!trackChanged) {
-          console.log('Track change not detected after 1.5s');
-        }
+        // Update stats
+        const mixTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        document.getElementById('mix-time').textContent = mixTime + 's';
         
-        const elapsed = Math.round(performance.now() - startTime);
-        document.getElementById('transition-time').textContent = elapsed + 'ms';
+        mixCount++;
+        document.getElementById('mix-count').textContent = mixCount;
         
-        skipCount++;
-        document.getElementById('skip-count').textContent = skipCount;
-        
-        updateStatus('ready', trackChanged ? 'Beat matched!' : 'Skipped');
-        
-        // Clear prebuffer for next track
-        nextTrackAnalysis = null;
+        updateStatus('ready', 'Mix complete!');
         
       } catch (error) {
-        console.error('Skip error:', error);
-        updateStatus('error', error.message || 'Skip failed');
+        console.error('Mix error:', error);
+        updateStatus('error', error.message);
       } finally {
-        isSkipping = false;
-        document.getElementById('skip-btn').disabled = false;
-        
-        // Trigger immediate prebuffer of new next track
-        setTimeout(prebufferNextTrack, 500);
+        isMixing = false;
+        document.getElementById('mix-btn').disabled = false;
+        setTimeout(() => showCrossfadeVisual(false), 2000);
       }
     }
 
-    // Monitor playback and prebuffer
+    // Animate crossfade visual
+    async function animateCrossfade() {
+      const steps = CROSSFADE_STEPS;
+      const stepDuration = CROSSFADE_DURATION / steps;
+      
+      for (let i = 0; i <= steps; i++) {
+        const progress = i / steps;
+        const currentVol = 100 - (progress * 100);
+        const nextVol = progress * 100;
+        
+        document.getElementById('current-volume').style.setProperty('--volume', currentVol + '%');
+        document.getElementById('next-volume').style.setProperty('--volume', nextVol + '%');
+        
+        await new Promise(r => setTimeout(r, stepDuration));
+      }
+    }
+
+    function showCrossfadeVisual(show) {
+      const visual = document.getElementById('crossfade-visual');
+      visual.style.display = show ? 'block' : 'none';
+      
+      if (show) {
+        document.getElementById('current-volume').style.setProperty('--volume', '100%');
+        document.getElementById('next-volume').style.setProperty('--volume', '0%');
+      }
+    }
+
+    // Monitor playback
     async function monitorPlayback() {
       try {
         const playback = await spotifyRequest('/me/player');
         
-        if (!playback) {
+        if (!playback || !playback.item) {
           updateEmptyState();
-          // Only show this message if we haven't connected yet
-          if (!currentTrack) {
-            updateStatus('ready', 'Play music in Spotify to begin');
-          }
-          return;
-        }
-        
-        if (!playback.item) {
-          updateEmptyState();
-          updateStatus('ready', 'Ready - Play something in Spotify');
-          return;
-        }
-
-        // Check if it's a track (not podcast/episode)
-        if (playback.currently_playing_type !== 'track') {
-          updateEmptyState();
-          updateStatus('error', 'Only music tracks supported');
           return;
         }
 
@@ -725,97 +799,69 @@
         const progress = playback.progress_ms || 0;
         const duration = track.duration_ms || 0;
         
-        // Update UI
+        // Update display
         updateTrackDisplay(track, progress, duration);
-        
-        // Only show "Ready" status if we're not already showing an error
-        const currentStatus = document.getElementById('status');
-        if (!currentStatus.classList.contains('error') && !currentStatus.classList.contains('processing')) {
-          updateStatus('ready', 'Ready');
-        }
-        
-        // Handle track changes
-        if (lastTrackId && lastTrackId !== track.id) {
-          // Track changed naturally (not from our skip)
-          if (!isSkipping) {
-            handleNaturalTrackChange();
-          }
-        }
-        
-        lastTrackId = track.id;
         currentTrack = track;
         
         // Update play button
         document.getElementById('play-btn').textContent = playback.is_playing ? 'Pause' : 'Play';
         
-        // Prebuffer next track when we're 70% through current track
-        const percentComplete = progress / duration;
-        if (percentComplete > 0.7 && !prebufferTimeout) {
-          prebufferTimeout = setTimeout(prebufferNextTrack, 0);
-        }
-        
-        // Reset prebuffer timeout on new track
-        if (percentComplete < 0.1) {
-          clearTimeout(prebufferTimeout);
-          prebufferTimeout = null;
-          nextTrackAnalysis = null; // Clear old analysis
-        }
-
-        // Show BPM if we have it
-        if (currentTrack) {
-          beatMatcher.analyze(currentTrack.id).then(analysis => {
+        // Update BPM
+        if (track.id !== currentTrack?.id) {
+          mixer.analyzeTrack(track.id).then(analysis => {
             if (analysis?.bpm) {
               currentBPM = Math.round(analysis.bpm);
-              document.getElementById('beat-accuracy').textContent = currentBPM;
+              document.getElementById('current-bpm').textContent = currentBPM;
             }
           });
         }
         
+        // Update queue when track is 70% complete
+        const percent = progress / duration;
+        if (percent > 0.7) {
+          updateQueue();
+        }
+        
       } catch (error) {
         console.error('Monitor error:', error);
-        // Don't show connection errors constantly
-        if (!currentTrack) {
-          updateStatus('error', 'Connection error - Refresh page');
-        }
       }
     }
 
-    // Prebuffer next track analysis
-    async function prebufferNextTrack() {
+    // Update queue display
+    async function updateQueue() {
       try {
         const queue = await spotifyRequest('/me/player/queue');
-        if (queue?.queue?.length > 0) {
-          const nextTrack = queue.queue[0];
-          
-          // Update next track display
-          document.getElementById('next-track').textContent = 
-            `${nextTrack.name} - ${nextTrack.artists[0].name}`;
-          
-          // Analyze in background
-          console.log('Prebuffering:', nextTrack.name);
-          nextTrackAnalysis = await beatMatcher.analyze(nextTrack.id);
-          
-          if (nextTrackAnalysis) {
-            console.log('Prebuffered with cue points:', nextTrackAnalysis.cuePoints);
-          }
+        if (!queue || !queue.queue) return;
+        
+        queuedTracks = queue.queue.slice(0, 3); // Show next 3 tracks
+        const queueList = document.getElementById('queue-list');
+        
+        if (queuedTracks.length === 0) {
+          queueList.innerHTML = `
+            <div class="queue-track">
+              <div class="queue-track-name">No tracks in queue</div>
+              <div class="queue-track-artist">Add songs to your queue</div>
+            </div>
+          `;
         } else {
-          document.getElementById('next-track').textContent = 'No tracks in queue';
+          queueList.innerHTML = queuedTracks.map(track => `
+            <div class="queue-track">
+              <div class="queue-track-name">${track.name}</div>
+              <div class="queue-track-artist">${track.artists[0].name}</div>
+            </div>
+          `).join('');
+          
+          // Preanalyze next track
+          if (queuedTracks[0]) {
+            nextTrackData = await mixer.analyzeTrack(queuedTracks[0].id);
+          }
         }
+        
+        document.getElementById('queue-count').textContent = `${queuedTracks.length} tracks`;
+        
       } catch (error) {
-        console.error('Prebuffer error:', error);
-        document.getElementById('next-track').textContent = 'Queue unavailable';
+        console.error('Queue update error:', error);
       }
-    }
-
-    // Handle natural track progression
-    function handleNaturalTrackChange() {
-      // Clear prebuffer
-      nextTrackAnalysis = null;
-      clearTimeout(prebufferTimeout);
-      prebufferTimeout = null;
-      
-      // Update stats
-      updateStatus('ready', 'Track changed');
     }
 
     // UI Updates
@@ -824,7 +870,6 @@
       document.getElementById('track-artist').textContent = 
         track.artists.map(a => a.name).join(', ');
       
-      // Update progress
       const percent = (progress / duration) * 100;
       document.getElementById('progress-fill').style.width = percent + '%';
       
@@ -838,14 +883,19 @@
       document.getElementById('progress-fill').style.width = '0%';
       document.getElementById('time-current').textContent = '0:00';
       document.getElementById('time-total').textContent = '0:00';
-      document.getElementById('beat-accuracy').textContent = '--';
+      document.getElementById('current-bpm').textContent = '--';
       currentTrack = null;
     }
 
     function updateStatus(type, message) {
       const status = document.getElementById('status');
       status.className = `status ${type}`;
-      status.innerHTML = type === 'processing' ? message + '<span class="spinner"></span>' : message;
+      
+      if (type === 'mixing') {
+        status.innerHTML = message + '<span class="mixing-spinner"></span>';
+      } else {
+        status.textContent = message;
+      }
     }
 
     function formatTime(ms) {
@@ -854,27 +904,12 @@
       return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
 
-    // Beat visualization
-    function animateBeats() {
-      if (!currentBPM) return;
-      
-      const beatDuration = 60000 / currentBPM;
-      const dots = document.querySelectorAll('.beat-dot');
-      let currentBeat = 0;
-      
-      setInterval(() => {
-        dots.forEach(d => d.classList.remove('active'));
-        dots[currentBeat].classList.add('active');
-        currentBeat = (currentBeat + 1) % dots.length;
-      }, beatDuration);
-    }
-
     // Playback controls
     async function togglePlayPause() {
       try {
         const playback = await spotifyRequest('/me/player');
         if (!playback) {
-          updateStatus('error', 'No active Spotify device');
+          updateStatus('error', 'No active device');
           return;
         }
         
@@ -884,8 +919,7 @@
           await spotifyRequest('/me/player/play', { method: 'PUT' });
         }
       } catch (error) {
-        console.error('Playback control error:', error);
-        updateStatus('error', 'Playback control failed');
+        console.error('Playback error:', error);
       }
     }
 
@@ -894,37 +928,16 @@
       document.getElementById('login-section').style.display = 'none';
       document.getElementById('main-interface').style.display = 'block';
       
-      updateStatus('ready', 'Connecting to Spotify...');
+      updateStatus('ready', 'Connected - Play music to begin');
       
-      // Test the connection first
-      const testConnection = await spotifyRequest('/me');
-      if (!testConnection) {
-        updateStatus('error', 'Failed to connect. Please reconnect.');
-        setTimeout(() => {
-          logout();
-        }, 2000);
-        return;
-      }
-      
-      console.log('Connected as:', testConnection.display_name);
-      
-      // Initial status
-      updateStatus('ready', 'Connected! Play music to begin');
-      
-      // Start monitoring with fast interval
+      // Start monitoring
       monitorInterval = setInterval(monitorPlayback, 500);
       await monitorPlayback();
-      
-      // Start beat animation
-      setTimeout(animateBeats, 1000);
+      await updateQueue();
     }
 
     function logout() {
       clearInterval(monitorInterval);
-      clearInterval(beatInterval);
-      clearInterval(progressInterval);
-      clearTimeout(prebufferTimeout);
-      
       accessToken = null;
       sessionStorage.clear();
       window.location.reload();
@@ -950,9 +963,10 @@
           e.preventDefault();
           togglePlayPause();
           break;
+        case 'KeyM':
         case 'ArrowRight':
           e.preventDefault();
-          skipWithBeats();
+          crossfadeMix();
           break;
       }
     });
