@@ -1,78 +1,1343 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
+  <title>DJ Crossfade - Beat-Matched Mixing</title>
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spotify DJ Crossfade Skip</title>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      background: #121212;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #121212 0%, #1a1a1a 100%);
       color: #fff;
-      font-family: sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 700px;
+      width: 100%;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 3.5em;
+      margin-bottom: 10px;
+      font-weight: 900;
+      background: linear-gradient(45deg, #1db954, #1ed760, #1db954);
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradient-flow 3s ease infinite;
+    }
+
+    @keyframes gradient-flow {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .subtitle {
+      opacity: 0.8;
+      margin-bottom: 30px;
+      font-size: 1.2em;
+    }
+
+    .main-card {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      padding: 40px;
+      backdrop-filter: blur(40px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Dual Track Display */
+    .tracks-container {
+      display: grid;
+      grid-template-columns: 1fr 80px 1fr;
+      gap: 20px;
+      margin-bottom: 30px;
+      align-items: center;
+    }
+
+    .track-display {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+    }
+
+    .track-display.active {
+      border-color: #1db954;
+      box-shadow: 0 0 20px rgba(29, 185, 84, 0.3);
+    }
+
+    .track-display.next {
+      opacity: 0.6;
+    }
+
+    .track-display.mixing {
+      animation: pulse-mix 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-mix {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+
+    .track-label {
+      font-size: 0.8em;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      opacity: 0.6;
+      margin-bottom: 10px;
+    }
+
+    .track-name {
+      font-size: 1.2em;
+      font-weight: 700;
+      margin-bottom: 5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .track-artist {
+      font-size: 0.9em;
+      opacity: 0.7;
+      margin-bottom: 15px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .track-bpm {
+      font-size: 2em;
+      font-weight: 800;
+      color: #1db954;
+      margin-top: 10px;
+    }
+
+    /* Crossfader */
+    .crossfader-display {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      padding: 20px;
     }
-    h1 {
-      font-size: 2em;
+
+    .crossfader-icon {
+      font-size: 3em;
+      margin-bottom: 10px;
+      transition: all 0.3s ease;
+    }
+
+    .crossfader-icon.mixing {
+      animation: rotate-mix 2s linear infinite;
+    }
+
+    @keyframes rotate-mix {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .mix-type {
+      font-size: 0.9em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.8;
+    }
+
+    /* Progress and Mix Visualization */
+    .mix-visualization {
+      margin: 30px 0;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 16px;
+    }
+
+    .progress-container {
+      position: relative;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
       margin-bottom: 20px;
     }
-    button {
-      padding: 10px 20px;
-      font-size: 1em;
-      margin: 5px;
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #1db954, #1ed760);
+      width: 0%;
+      transition: width 0.3s ease;
+      border-radius: 4px;
     }
-    #status {
+
+    .mix-point-marker {
+      position: absolute;
+      top: -4px;
+      width: 2px;
+      height: 16px;
+      background: #ff6b6b;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .mix-point-marker.visible {
+      opacity: 1;
+    }
+
+    .volume-meters {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
       margin-top: 15px;
     }
-    audio {
-      margin-top: 10px;
+
+    .volume-meter {
+      text-align: center;
+    }
+
+    .volume-label {
+      font-size: 0.8em;
+      opacity: 0.6;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .volume-bar {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .volume-fill {
+      height: 100%;
+      background: #1db954;
+      width: var(--volume, 100%);
+      transition: width 0.1s linear;
+      border-radius: 3px;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      margin: 25px 0;
+    }
+
+    .btn {
+      padding: 14px 36px;
+      border: none;
+      border-radius: 28px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-size: 1.05em;
+      position: relative;
+      overflow: hidden;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .btn:active::before {
       width: 300px;
+      height: 300px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #1db954, #1ed760);
+      color: white;
+      box-shadow: 0 6px 25px rgba(29, 185, 84, 0.4);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 35px rgba(29, 185, 84, 0.6);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* Status */
+    .status {
+      margin: 20px 0;
+      padding: 12px 24px;
+      border-radius: 24px;
+      font-size: 0.95em;
+      display: inline-block;
+      font-weight: 500;
+    }
+
+    .status.ready {
+      background: rgba(29, 185, 84, 0.2);
+      color: #1ed760;
+    }
+
+    .status.mixing {
+      background: rgba(255, 193, 7, 0.2);
+      color: #ffc107;
+    }
+
+    .status.analyzing {
+      background: rgba(33, 150, 243, 0.2);
+      color: #2196f3;
+    }
+
+    /* Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin: 25px 0;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 20px;
+      border-radius: 12px;
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .stat-value {
+      font-size: 2.2em;
+      font-weight: 800;
+      color: #1db954;
+    }
+
+    .stat-label {
+      font-size: 0.85em;
+      opacity: 0.6;
+      margin-top: 5px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Queue */
+    .queue-section {
+      margin-top: 30px;
+      padding: 25px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 16px;
+    }
+
+    .queue-header {
+      font-size: 0.9em;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      opacity: 0.6;
+      margin-bottom: 15px;
+    }
+
+    .queue-item {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s ease;
+    }
+
+    .queue-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .queue-track-info {
+      text-align: left;
+      flex: 1;
+    }
+
+    .queue-track-name {
+      font-weight: 600;
+      font-size: 0.95em;
+    }
+
+    .queue-track-artist {
+      font-size: 0.85em;
+      opacity: 0.6;
+      margin-top: 2px;
+    }
+
+    .queue-bpm {
+      font-weight: 700;
+      color: #1db954;
+      font-size: 0.9em;
+    }
+
+    /* Login */
+    .login-section {
+      text-align: center;
+    }
+
+    .login-section h2 {
+      margin-bottom: 20px;
+      font-size: 2.2em;
+    }
+
+    .login-section p {
+      margin-bottom: 30px;
+      opacity: 0.8;
+      line-height: 1.6;
+      font-size: 1.1em;
+    }
+
+    /* Loading spinner */
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-left: 10px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
-  <h1>Skip with Crossfade</h1>
-  <button onclick="skipWithCrossfade()">Skip Song</button>
-  <div id="status">Status: Waiting</div>
-  <audio id="deckA" src="https://p.scdn.co/mp3-preview/ee47c07a6b3b3ffb9bbd0056e0b378dd4c69db8a?cid=774b29d4f13844c495f206cafdad9c86" preload="auto"></audio>
-  <audio id="deckB" src="https://p.scdn.co/mp3-preview/6c537ae8e1ea76c61670a3c44e51e45f84c2c552?cid=774b29d4f13844c495f206cafdad9c86" preload="auto"></audio>
+  <div class="container">
+    <h1>DJ Crossfade</h1>
+    <p class="subtitle">Seamless beat-matched transitions</p>
+
+    <div id="login-section" class="login-section main-card">
+      <h2>🎛️ Professional DJ Mixing</h2>
+      <p>
+        Experience true DJ-style transitions with beat-matched crossfading.
+        Our AI analyzes tracks, finds perfect mix points, and creates smooth
+        transitions that keep the energy flowing.
+      </p>
+      <button onclick="login()" class="btn btn-primary">Connect Spotify</button>
+    </div>
+
+    <div id="main-interface" style="display: none;">
+      <div class="main-card">
+        <!-- Dual Track Display -->
+        <div class="tracks-container">
+          <div class="track-display active" id="track-a">
+            <div class="track-label">Now Playing</div>
+            <div class="track-name" id="track-a-name">No track</div>
+            <div class="track-artist" id="track-a-artist">--</div>
+            <div class="track-bpm" id="track-a-bpm">-- BPM</div>
+          </div>
+          
+          <div class="crossfader-display">
+            <div class="crossfader-icon" id="crossfader-icon">⚡</div>
+            <div class="mix-type" id="mix-type">READY</div>
+          </div>
+          
+          <div class="track-display next" id="track-b">
+            <div class="track-label">Up Next</div>
+            <div class="track-name" id="track-b-name">Loading...</div>
+            <div class="track-artist" id="track-b-artist">--</div>
+            <div class="track-bpm" id="track-b-bpm">-- BPM</div>
+          </div>
+        </div>
+
+        <!-- Mix Visualization -->
+        <div class="mix-visualization">
+          <div class="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+            <div class="mix-point-marker" id="mix-point-marker"></div>
+          </div>
+          
+          <div class="volume-meters">
+            <div class="volume-meter">
+              <div class="volume-label">Current</div>
+              <div class="volume-bar">
+                <div class="volume-fill" id="volume-current" style="--volume: 100%"></div>
+              </div>
+            </div>
+            <div class="volume-meter">
+              <div class="volume-label">Next</div>
+              <div class="volume-bar">
+                <div class="volume-fill" id="volume-next" style="--volume: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button onclick="executeCrossfade()" class="btn btn-primary" id="mix-btn">
+            Mix Now
+          </button>
+          <button onclick="togglePlayPause()" class="btn btn-secondary" id="play-btn">
+            Play
+          </button>
+          <button onclick="toggleAutoMix()" class="btn btn-secondary" id="auto-btn">
+            Auto: OFF
+          </button>
+        </div>
+
+        <div id="status" class="status ready">Ready</div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="mix-count">0</div>
+            <div class="stat-label">Mixes</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="sync-accuracy">--</div>
+            <div class="stat-label">Sync %</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="mix-time">--</div>
+            <div class="stat-label">Mix Time</div>
+          </div>
+        </div>
+
+        <div class="queue-section">
+          <div class="queue-header">Queue</div>
+          <div id="queue-list">
+            <div class="queue-item">
+              <div class="queue-track-info">
+                <div class="queue-track-name">Loading queue...</div>
+                <div class="queue-track-artist">Please wait</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="logout()" class="btn btn-secondary" style="margin-top: 20px;">
+        Disconnect
+      </button>
+    </div>
+  </div>
 
   <script>
-    async function skipWithCrossfade() {
-      const deckA = document.getElementById('deckA');
-      const deckB = document.getElementById('deckB');
-      const fadeDuration = 3000; // 3 seconds fade for skip transition
+    // Configuration
+    const CLIENT_ID = 'e60ede83721246198bf4fe8a9bee8ca8';
+    const REDIRECT_URI = window.location.origin + window.location.pathname;
+    const SCOPES = [
+      'user-read-playback-state',
+      'user-modify-playback-state',
+      'user-read-currently-playing',
+      'streaming'
+    ];
 
-      document.getElementById('status').innerText = 'Starting crossfade skip...';
-      deckA.volume = 1;
-      deckB.volume = 0;
-      deckA.currentTime = 10;
-      deckB.currentTime = 0;
-      deckA.play();
+    // Crossfade settings
+    const CROSSFADE_DURATION = 6000; // 6 seconds
+    const FADE_STEPS = 30; // 30 steps for smooth fade
+    const BEAT_ANALYSIS_CACHE = new Map();
+    const ANALYSIS_CACHE_DURATION = 3600000; // 1 hour
 
-      setTimeout(() => {
-        deckB.play();
-        let progress = 0;
-        const step = 0.05;
-        const interval = fadeDuration * step;
+    // Global state
+    let accessToken = null;
+    let currentTrack = null;
+    let nextTrack = null;
+    let isProcessingMix = false;
+    let mixCount = 0;
+    let autoMixEnabled = false;
+    let monitorInterval = null;
+    let currentTrackAnalysis = null;
+    let nextTrackAnalysis = null;
+    let queueTracks = [];
+    let lastProgress = 0;
 
-        const fade = setInterval(() => {
-          progress += step;
-          deckA.volume = Math.max(0, 1 - progress);
-          deckB.volume = Math.min(1, progress);
+    // Professional DJ Mixing System
+    class DJMixEngine {
+      constructor() {
+        this.mixHistory = [];
+      }
 
-          if (progress >= 1) {
-            clearInterval(fade);
-            deckA.pause();
-            document.getElementById('status').innerText = '✅ Skip with Crossfade Complete';
+      // Get detailed beat analysis
+      async getTrackAnalysis(trackId) {
+        // Check cache first
+        const cached = BEAT_ANALYSIS_CACHE.get(trackId);
+        if (cached && Date.now() - cached.timestamp < ANALYSIS_CACHE_DURATION) {
+          return cached.data;
+        }
+
+        try {
+          // Get audio features
+          const features = await spotifyRequest(`/audio-features/${trackId}`);
+          if (!features) return null;
+
+          // Try to get detailed analysis
+          let analysis = null;
+          try {
+            analysis = await spotifyRequest(`/audio-analysis/${trackId}`);
+          } catch (e) {
+            console.log('Audio analysis not available, using features only');
           }
-        }, interval);
-      }, 1000);
+
+          const trackData = {
+            id: trackId,
+            bpm: features.tempo,
+            key: features.key,
+            mode: features.mode,
+            energy: features.energy,
+            danceability: features.danceability,
+            valence: features.valence,
+            duration: features.duration_ms,
+            
+            // Beat data
+            beats: analysis?.beats || this.generateBeats(features),
+            bars: analysis?.bars || this.generateBars(features),
+            sections: analysis?.sections || this.generateSections(features),
+            
+            // Mix points
+            cuePoints: this.calculateCuePoints(features, analysis),
+            fadeInPoint: this.calculateFadeIn(features, analysis),
+            fadeOutPoint: this.calculateFadeOut(features, analysis)
+          };
+
+          // Cache it
+          BEAT_ANALYSIS_CACHE.set(trackId, {
+            data: trackData,
+            timestamp: Date.now()
+          });
+
+          return trackData;
+        } catch (error) {
+          console.error('Track analysis failed:', error);
+          return null;
+        }
+      }
+
+      // Generate beat grid if analysis unavailable
+      generateBeats(features) {
+        const beatDuration = 60 / features.tempo; // seconds per beat
+        const beats = [];
+        
+        for (let time = 0; time < features.duration_ms / 1000; time += beatDuration) {
+          beats.push({
+            start: time,
+            duration: beatDuration,
+            confidence: 0.8
+          });
+        }
+        
+        return beats;
+      }
+
+      generateBars(features) {
+        const barDuration = (60 / features.tempo) * features.time_signature;
+        const bars = [];
+        
+        for (let time = 0; time < features.duration_ms / 1000; time += barDuration) {
+          bars.push({
+            start: time,
+            duration: barDuration,
+            confidence: 0.8
+          });
+        }
+        
+        return bars;
+      }
+
+      generateSections(features) {
+        // Estimate sections based on common song structure
+        const sectionLength = 32 * (60 / features.tempo); // 32 beats
+        const sections = [];
+        
+        for (let time = 0; time < features.duration_ms / 1000; time += sectionLength) {
+          sections.push({
+            start: time,
+            duration: Math.min(sectionLength, features.duration_ms / 1000 - time),
+            confidence: 0.7
+          });
+        }
+        
+        return sections;
+      }
+
+      // Calculate optimal cue points
+      calculateCuePoints(features, analysis) {
+        const cuePoints = [];
+        
+        // First strong beat after intro (usually 16-32 bars in)
+        const introDuration = 16 * (60 / features.tempo) * features.time_signature;
+        cuePoints.push({
+          time: introDuration * 1000,
+          type: 'intro_end',
+          confidence: 0.9
+        });
+        
+        // First chorus (usually around 30% into track)
+        cuePoints.push({
+          time: features.duration_ms * 0.3,
+          type: 'chorus_start',
+          confidence: 0.8
+        });
+        
+        // Peak energy point
+        if (analysis?.sections) {
+          const peakSection = analysis.sections.reduce((peak, section) => 
+            section.loudness > peak.loudness ? section : peak
+          );
+          cuePoints.push({
+            time: peakSection.start * 1000,
+            type: 'peak_energy',
+            confidence: 0.85
+          });
+        }
+        
+        return cuePoints.sort((a, b) => a.time - b.time);
+      }
+
+      calculateFadeIn(features, analysis) {
+        // Find first major beat/downbeat after intro
+        if (analysis?.beats && analysis.beats.length > 16) {
+          return analysis.beats[16].start * 1000; // Start at bar 5
+        }
+        return 16000; // Default 16 seconds
+      }
+
+      calculateFadeOut(features, analysis) {
+        // Start fade 8 bars before end
+        const outro = 8 * (60 / features.tempo) * features.time_signature * 1000;
+        return features.duration_ms - outro;
+      }
+
+      // Calculate mix compatibility
+      calculateMixCompatibility(trackA, trackB) {
+        if (!trackA || !trackB) return { score: 0, type: 'unknown' };
+
+        let score = 0;
+        const factors = [];
+
+        // BPM compatibility (within 10% is good)
+        const bpmRatio = Math.min(trackA.bpm, trackB.bpm) / Math.max(trackA.bpm, trackB.bpm);
+        const bpmScore = bpmRatio > 0.9 ? 100 : bpmRatio * 100;
+        score += bpmScore * 0.4;
+        factors.push(`BPM: ${Math.round(bpmScore)}%`);
+
+        // Key compatibility (Camelot wheel)
+        const keyScore = this.calculateKeyCompatibility(trackA.key, trackA.mode, trackB.key, trackB.mode);
+        score += keyScore * 0.3;
+        factors.push(`Key: ${Math.round(keyScore)}%`);
+
+        // Energy flow
+        const energyDiff = Math.abs(trackA.energy - trackB.energy);
+        const energyScore = (1 - energyDiff) * 100;
+        score += energyScore * 0.3;
+        factors.push(`Energy: ${Math.round(energyScore)}%`);
+
+        // Determine mix type
+        let mixType = 'standard';
+        if (bpmScore > 95 && keyScore > 80) {
+          mixType = 'harmonic';
+        } else if (energyDiff > 0.5) {
+          mixType = 'energy_jump';
+        } else if (trackB.energy > trackA.energy + 0.2) {
+          mixType = 'build_up';
+        }
+
+        return {
+          score: Math.round(score),
+          type: mixType,
+          factors: factors
+        };
+      }
+
+      calculateKeyCompatibility(keyA, modeA, keyB, modeB) {
+        // Simplified Camelot wheel compatibility
+        const keyDiff = Math.abs(keyA - keyB);
+        
+        // Same key = perfect
+        if (keyA === keyB && modeA === modeB) return 100;
+        
+        // Adjacent keys (±1 or ±5 semitones)
+        if (keyDiff === 1 || keyDiff === 5 || keyDiff === 7) return 85;
+        
+        // Relative major/minor
+        if (keyDiff === 3 && modeA !== modeB) return 90;
+        
+        // Not very compatible
+        return 50;
+      }
+
+      // Find optimal mix point
+      findMixPoint(currentTrack, currentProgress, nextTrack) {
+        if (!currentTrack || !nextTrack) return null;
+
+        const remainingTime = currentTrack.duration - currentProgress;
+        
+        // Find best cue point in next track
+        let targetCue = nextTrack.fadeInPoint || 16000;
+        
+        // If we have cue points, use the best one
+        if (nextTrack.cuePoints && nextTrack.cuePoints.length > 0) {
+          // Prefer intro_end or chorus_start
+          const preferredCue = nextTrack.cuePoints.find(cue => 
+            cue.type === 'intro_end' || cue.type === 'chorus_start'
+          );
+          if (preferredCue) {
+            targetCue = preferredCue.time;
+          }
+        }
+
+        // Calculate when to start crossfade
+        let crossfadeStart = currentProgress;
+        if (remainingTime > CROSSFADE_DURATION * 2) {
+          // Start crossfade at a bar boundary
+          const barDuration = (60 / currentTrack.bpm) * 4 * 1000; // 4 beats per bar
+          const barsUntilEnd = Math.floor(remainingTime / barDuration);
+          const crossfadeBars = Math.ceil(CROSSFADE_DURATION / barDuration);
+          
+          if (barsUntilEnd > crossfadeBars + 2) {
+            crossfadeStart = currentTrack.duration - ((crossfadeBars + 2) * barDuration);
+          }
+        }
+
+        return {
+          startTime: crossfadeStart,
+          targetCue: targetCue,
+          duration: CROSSFADE_DURATION,
+          type: 'beat_matched'
+        };
+      }
     }
+
+    const mixEngine = new DJMixEngine();
+
+    // Spotify Auth
+    async function generateCodeChallenge(codeVerifier) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(codeVerifier);
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return btoa(String.fromCharCode(...new Uint8Array(digest)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+    }
+
+    function generateRandomString(length) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+      return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    }
+
+    async function login() {
+      const state = generateRandomString(16);
+      const codeVerifier = generateRandomString(128);
+      const codeChallenge = await generateCodeChallenge(codeVerifier);
+      
+      sessionStorage.setItem('code_verifier', codeVerifier);
+      sessionStorage.setItem('state', state);
+      
+      const authUrl = new URL('https://accounts.spotify.com/authorize');
+      authUrl.searchParams.set('response_type', 'code');
+      authUrl.searchParams.set('client_id', CLIENT_ID);
+      authUrl.searchParams.set('scope', SCOPES.join(' '));
+      authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+      authUrl.searchParams.set('state', state);
+      authUrl.searchParams.set('code_challenge_method', 'S256');
+      authUrl.searchParams.set('code_challenge', codeChallenge);
+      
+      window.location = authUrl.toString();
+    }
+
+    async function handleRedirect() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const state = params.get('state');
+
+      if (!code) return;
+
+      const storedState = sessionStorage.getItem('state');
+      if (state !== storedState) return;
+
+      const codeVerifier = sessionStorage.getItem('code_verifier');
+      
+      try {
+        const response = await fetch('https://accounts.spotify.com/api/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: REDIRECT_URI,
+            client_id: CLIENT_ID,
+            code_verifier: codeVerifier
+          })
+        });
+
+        const data = await response.json();
+        if (data.access_token) {
+          accessToken = data.access_token;
+          sessionStorage.setItem('access_token', data.access_token);
+          window.history.replaceState({}, document.title, window.location.pathname);
+          await initializeApp();
+        }
+      } catch (error) {
+        console.error('Auth error:', error);
+      }
+    }
+
+    // Spotify API
+    async function spotifyRequest(endpoint, options = {}) {
+      if (!accessToken) return null;
+      
+      try {
+        const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            ...options.headers
+          },
+          ...options
+        });
+
+        if (response.status === 204) return true;
+        if (response.status === 401) {
+          sessionStorage.removeItem('access_token');
+          window.location.reload();
+          return null;
+        }
+        if (!response.ok) return null;
+        
+        return await response.json();
+      } catch (error) {
+        console.error('API error:', error);
+        return null;
+      }
+    }
+
+    // Main crossfade execution - simulates Spotify's crossfade when skipping
+    async function executeCrossfade() {
+      if (isProcessingMix || !currentTrack) return;
+      
+      isProcessingMix = true;
+      document.getElementById('mix-btn').disabled = true;
+      updateStatus('mixing', 'Crossfading...');
+      showMixAnimation(true);
+      
+      const startTime = Date.now();
+      
+      try {
+        // Get current playback state
+        const playback = await spotifyRequest('/me/player');
+        if (!playback || !playback.item) {
+          throw new Error('No active playback');
+        }
+
+        const currentPos = playback.progress_ms;
+        
+        // Get and analyze current track
+        if (!currentTrackAnalysis) {
+          currentTrackAnalysis = await mixEngine.getTrackAnalysis(currentTrack.id);
+        }
+
+        // Get and analyze next track
+        if (!nextTrackAnalysis && nextTrack) {
+          nextTrackAnalysis = await mixEngine.getTrackAnalysis(nextTrack.id);
+        }
+
+        // Start visual crossfade
+        await performVisualCrossfade();
+        
+        // Calculate optimal seek point in next track
+        let seekPoint = 0;
+        if (nextTrackAnalysis) {
+          // Skip intro - find first major beat
+          seekPoint = nextTrackAnalysis.fadeInPoint || 16000;
+          
+          // Check mix compatibility
+          const compatibility = mixEngine.calculateMixCompatibility(
+            currentTrackAnalysis,
+            nextTrackAnalysis
+          );
+          
+          updateSyncAccuracy(compatibility.score);
+          console.log('Mix compatibility:', compatibility);
+        }
+
+        // Execute the skip at the midpoint of the crossfade
+        setTimeout(async () => {
+          await spotifyRequest('/me/player/next', { method: 'POST' });
+          
+          // Wait for track change and seek
+          let attempts = 0;
+          const checkInterval = setInterval(async () => {
+            const newPlayback = await spotifyRequest('/me/player');
+            
+            if (newPlayback?.item?.id !== currentTrack.id || attempts > 20) {
+              clearInterval(checkInterval);
+              
+              // Apply seek to skip intro
+              if (seekPoint > 1000 && newPlayback?.item?.id === nextTrack?.id) {
+                await spotifyRequest(`/me/player/seek?position_ms=${Math.floor(seekPoint)}`, {
+                  method: 'PUT'
+                });
+                console.log(`Seeked to ${seekPoint}ms for smooth entry`);
+              }
+            }
+            attempts++;
+          }, 100);
+        }, CROSSFADE_DURATION / 2); // Skip at midpoint
+        
+        // Complete the mix
+        mixCount++;
+        const mixTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        
+        document.getElementById('mix-count').textContent = mixCount;
+        document.getElementById('mix-time').textContent = mixTime + 's';
+        
+        updateStatus('ready', 'Mix complete!');
+        
+      } catch (error) {
+        console.error('Crossfade error:', error);
+        updateStatus('ready', 'Mix failed - skipping normally');
+        
+        // Fallback to normal skip
+        await spotifyRequest('/me/player/next', { method: 'POST' });
+      } finally {
+        isProcessingMix = false;
+        document.getElementById('mix-btn').disabled = false;
+        showMixAnimation(false);
+        
+        // Reset for next track
+        currentTrackAnalysis = nextTrackAnalysis;
+        nextTrackAnalysis = null;
+      }
+    }
+
+    // Visual crossfade animation (simulates audio crossfade)
+    async function performVisualCrossfade() {
+      const steps = FADE_STEPS;
+      const stepDuration = CROSSFADE_DURATION / steps;
+      
+      // Animate the crossfade
+      for (let i = 0; i <= steps; i++) {
+        const progress = i / steps;
+        
+        // Exponential fade curves for more natural sound
+        const fadeOut = Math.cos(progress * Math.PI / 2);
+        const fadeIn = Math.sin(progress * Math.PI / 2);
+        
+        // Update volume meters
+        document.getElementById('volume-current').style.setProperty('--volume', (fadeOut * 100) + '%');
+        document.getElementById('volume-next').style.setProperty('--volume', (fadeIn * 100) + '%');
+        
+        // Update track displays
+        if (progress > 0.5) {
+          document.getElementById('track-a').classList.remove('active');
+          document.getElementById('track-b').classList.add('active');
+        }
+        
+        await new Promise(r => setTimeout(r, stepDuration));
+      }
+    }
+
+    // Show mix animation
+    function showMixAnimation(show) {
+      const icon = document.getElementById('crossfader-icon');
+      const trackA = document.getElementById('track-a');
+      const trackB = document.getElementById('track-b');
+      
+      if (show) {
+        icon.classList.add('mixing');
+        trackA.classList.add('mixing');
+        trackB.classList.add('mixing');
+        document.getElementById('mix-type').textContent = 'MIXING...';
+      } else {
+        icon.classList.remove('mixing');
+        trackA.classList.remove('mixing');
+        trackB.classList.remove('mixing');
+        document.getElementById('mix-type').textContent = 'READY';
+      }
+    }
+
+    // Monitor playback and prebuffer
+    async function monitorPlayback() {
+      try {
+        const playback = await spotifyRequest('/me/player');
+        
+        if (!playback || !playback.item) {
+          updateEmptyState();
+          return;
+        }
+
+        const track = playback.item;
+        const progress = playback.progress_ms || 0;
+        const duration = track.duration_ms || 0;
+        
+        // Update current track
+        if (!currentTrack || currentTrack.id !== track.id) {
+          currentTrack = track;
+          updateTrackDisplay('a', track);
+          
+          // Analyze new track
+          currentTrackAnalysis = await mixEngine.getTrackAnalysis(track.id);
+          if (currentTrackAnalysis) {
+            document.getElementById('track-a-bpm').textContent = 
+              Math.round(currentTrackAnalysis.bpm) + ' BPM';
+          }
+        }
+        
+        // Update progress
+        const percent = (progress / duration) * 100;
+        document.getElementById('progress-bar').style.width = percent + '%';
+        lastProgress = progress;
+        
+        // Update play button
+        document.getElementById('play-btn').textContent = playback.is_playing ? 'Pause' : 'Play';
+        
+        // Prebuffer when 60% through track
+        if (percent > 60) {
+          await updateQueue();
+        }
+        
+        // Auto-mix when approaching end
+        if (autoMixEnabled && percent > 85 && !isProcessingMix) {
+          await executeCrossfade();
+        }
+        
+        // Show mix point marker
+        if (currentTrackAnalysis && percent > 70) {
+          const mixPoint = duration * 0.85;
+          const markerPos = (mixPoint / duration) * 100;
+          const marker = document.getElementById('mix-point-marker');
+          marker.style.left = markerPos + '%';
+          marker.classList.add('visible');
+        }
+        
+      } catch (error) {
+        console.error('Monitor error:', error);
+      }
+    }
+
+    // Update queue and prebuffer
+    async function updateQueue() {
+      try {
+        const queue = await spotifyRequest('/me/player/queue');
+        if (!queue || !queue.queue) return;
+        
+        queueTracks = queue.queue.slice(0, 5);
+        
+        if (queueTracks.length > 0) {
+          nextTrack = queueTracks[0];
+          updateTrackDisplay('b', nextTrack);
+          
+          // Pre-analyze next track
+          if (nextTrack.id !== nextTrackAnalysis?.id) {
+            updateStatus('analyzing', 'Analyzing next track...');
+            nextTrackAnalysis = await mixEngine.getTrackAnalysis(nextTrack.id);
+            
+            if (nextTrackAnalysis) {
+              document.getElementById('track-b-bpm').textContent = 
+                Math.round(nextTrackAnalysis.bpm) + ' BPM';
+              updateStatus('ready', 'Ready to mix');
+            }
+          }
+        }
+        
+        // Update queue display
+        updateQueueDisplay();
+        
+      } catch (error) {
+        console.error('Queue update error:', error);
+      }
+    }
+
+    // UI Updates
+    function updateTrackDisplay(deck, track) {
+      if (!track) return;
+      
+      const prefix = `track-${deck}`;
+      document.getElementById(`${prefix}-name`).textContent = 
+        track.name || 'Unknown';
+      document.getElementById(`${prefix}-artist`).textContent = 
+        track.artists?.map(a => a.name).join(', ') || 'Unknown';
+    }
+
+    function updateQueueDisplay() {
+      const queueList = document.getElementById('queue-list');
+      
+      if (queueTracks.length === 0) {
+        queueList.innerHTML = `
+          <div class="queue-item">
+            <div class="queue-track-info">
+              <div class="queue-track-name">No tracks in queue</div>
+              <div class="queue-track-artist">Add more songs</div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      queueList.innerHTML = queueTracks.slice(0, 3).map((track, index) => `
+        <div class="queue-item">
+          <div class="queue-track-info">
+            <div class="queue-track-name">${track.name}</div>
+            <div class="queue-track-artist">${track.artists[0].name}</div>
+          </div>
+          <div class="queue-bpm" id="queue-bpm-${index}">-- BPM</div>
+        </div>
+      `).join('');
+      
+      // Get BPM for queue tracks
+      queueTracks.slice(0, 3).forEach(async (track, index) => {
+        const analysis = await mixEngine.getTrackAnalysis(track.id);
+        if (analysis) {
+          const bpmElement = document.getElementById(`queue-bpm-${index}`);
+          if (bpmElement) {
+            bpmElement.textContent = Math.round(analysis.bpm) + ' BPM';
+          }
+        }
+      });
+    }
+
+    function updateEmptyState() {
+      updateTrackDisplay('a', {
+        name: 'No track playing',
+        artists: [{ name: 'Start playing in Spotify' }]
+      });
+      updateTrackDisplay('b', {
+        name: 'Queue empty',
+        artists: [{ name: 'Add tracks to queue' }]
+      });
+      document.getElementById('track-a-bpm').textContent = '-- BPM';
+      document.getElementById('track-b-bpm').textContent = '-- BPM';
+      document.getElementById('progress-bar').style.width = '0%';
+      currentTrack = null;
+      nextTrack = null;
+    }
+
+    function updateStatus(type, message) {
+      const status = document.getElementById('status');
+      status.className = `status ${type}`;
+      
+      if (type === 'analyzing') {
+        status.innerHTML = message + '<span class="loading-spinner"></span>';
+      } else {
+        status.textContent = message;
+      }
+    }
+
+    function updateSyncAccuracy(score) {
+      document.getElementById('sync-accuracy').textContent = score + '%';
+    }
+
+    // Controls
+    async function togglePlayPause() {
+      const playback = await spotifyRequest('/me/player');
+      if (!playback) return;
+      
+      if (playback.is_playing) {
+        await spotifyRequest('/me/player/pause', { method: 'PUT' });
+      } else {
+        await spotifyRequest('/me/player/play', { method: 'PUT' });
+      }
+    }
+
+    function toggleAutoMix() {
+      autoMixEnabled = !autoMixEnabled;
+      const btn = document.getElementById('auto-btn');
+      btn.textContent = autoMixEnabled ? 'Auto: ON' : 'Auto: OFF';
+      
+      if (autoMixEnabled) {
+        updateStatus('ready', 'Auto-mix enabled - will mix at 85%');
+      } else {
+        updateStatus('ready', 'Auto-mix disabled');
+      }
+    }
+
+    // Initialize
+    async function initializeApp() {
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('main-interface').style.display = 'block';
+      
+      updateStatus('ready', 'Connected - Play music to begin');
+      
+      // Start monitoring
+      monitorInterval = setInterval(monitorPlayback, 500);
+      await monitorPlayback();
+      await updateQueue();
+    }
+
+    function logout() {
+      clearInterval(monitorInterval);
+      accessToken = null;
+      sessionStorage.clear();
+      window.location.reload();
+    }
+
+    // Initialize on load
+    window.onload = async function() {
+      const storedToken = sessionStorage.getItem('access_token');
+      if (storedToken) {
+        accessToken = storedToken;
+        await initializeApp();
+      } else {
+        await handleRedirect();
+      }
+    };
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (!accessToken) return;
+      
+      switch(e.code) {
+        case 'Space':
+          e.preventDefault();
+          togglePlayPause();
+          break;
+        case 'KeyX':
+        case 'KeyM':
+        case 'ArrowRight':
+          e.preventDefault();
+          executeCrossfade();
+          break;
+        case 'KeyA':
+          e.preventDefault();
+          toggleAutoMix();
+          break;
+      }
+    });
   </script>
 </body>
 </html>
