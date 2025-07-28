@@ -134,10 +134,30 @@
       return result.ok ? await result.json() : null;
     }
 
+    async function spotifyPost(endpoint) {
+      return await fetch(`https://api.spotify.com/v1${endpoint}`, {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + accessToken,
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+
+    async function spotifyPut(endpoint) {
+      return await fetch(`https://api.spotify.com/v1${endpoint}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: 'Bearer ' + accessToken,
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+
     async function getBeatStart(trackId) {
       const analysis = await spotifyRequest(`/audio-analysis/${trackId}`);
-      if (!analysis || !analysis.beats) return 0;
-      return Math.floor((analysis.beats[0]?.start || 0) * 1000);
+      if (!analysis || !analysis.beats || analysis.beats.length === 0) return 0;
+      return Math.floor((analysis.beats[0].start || 0) * 1000);
     }
 
     async function performBeatMatchedSkip() {
@@ -148,15 +168,23 @@
       if (!playbackBefore || !playbackBefore.item?.id) return;
       const currentTrackId = playbackBefore.item.id;
 
-      await spotifyPost('/me/player/next');
+      const skipRes = await spotifyPost('/me/player/next');
+      if (!skipRes.ok) {
+        document.getElementById('status').innerText = '❌ Skip failed.';
+        return;
+      }
 
       setTimeout(async () => {
         const playbackAfter = await spotifyRequest('/me/player/currently-playing');
         const nextTrackId = playbackAfter?.item?.id;
+        if (!nextTrackId) {
+          document.getElementById('status').innerText = '❌ Could not fetch next track.';
+          return;
+        }
         const seekPosition = await getBeatStart(nextTrackId);
         await spotifyPut(`/me/player/seek?position_ms=${seekPosition}`);
         document.getElementById('status').innerText = '✅ Skip complete (beat matched)';
-      }, 1200);
+      }, 1500);
     }
 
     async function monitorPlayback() {
