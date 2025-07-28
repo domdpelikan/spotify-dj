@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Smart Beat Skip - AI Evolution</title>
+  <title>Seamless Beat Skip</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
@@ -12,560 +12,303 @@
     }
 
     body {
-      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0a0a0a 100%);
-      color: white;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0a;
+      color: #fff;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 20px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    body::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle, rgba(29, 185, 84, 0.1) 0%, transparent 70%);
-      animation: pulse-bg 10s ease-in-out infinite;
-    }
-
-    @keyframes pulse-bg {
-      0%, 100% { transform: scale(1) rotate(0deg); }
-      50% { transform: scale(1.1) rotate(180deg); }
     }
 
     .container {
-      max-width: 900px;
+      max-width: 500px;
+      width: 100%;
       text-align: center;
-      position: relative;
-      z-index: 1;
     }
 
-    .header h1 {
-      font-size: 4em;
-      font-weight: 900;
+    h1 {
+      font-size: 2.5em;
       margin-bottom: 10px;
-      background: linear-gradient(45deg, #1db954, #1ed760, #1db954);
-      background-size: 200% 200%;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      animation: gradient-shift 3s ease infinite;
-    }
-
-    @keyframes gradient-shift {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
+      font-weight: 700;
     }
 
     .subtitle {
-      font-size: 1.3em;
-      opacity: 0.9;
+      opacity: 0.7;
       margin-bottom: 30px;
-      font-weight: 300;
     }
 
-    .ai-evolution-status {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      background: rgba(138, 43, 226, 0.1);
-      border: 1px solid rgba(138, 43, 226, 0.3);
-      border-radius: 12px;
-      padding: 15px 20px;
-      font-size: 0.9em;
-      backdrop-filter: blur(10px);
-    }
-
-    .evolution-level {
-      font-weight: bold;
-      color: #8a2be2;
-    }
-
-    .status {
-      padding: 15px 25px;
-      border-radius: 50px;
-      margin: 20px 0;
-      font-weight: 600;
-      font-size: 1.1em;
-      display: inline-block;
-      backdrop-filter: blur(20px);
-    }
-
-    .status.connected {
-      background: rgba(29, 185, 84, 0.15);
-      border: 1px solid rgba(29, 185, 84, 0.5);
-      box-shadow: 0 0 20px rgba(29, 185, 84, 0.3);
-    }
-
-    .status.disconnected {
-      background: rgba(255, 60, 60, 0.15);
-      border: 1px solid rgba(255, 60, 60, 0.5);
-    }
-
-    .status.working {
-      background: rgba(255, 165, 0, 0.15);
-      border: 1px solid rgba(255, 165, 0, 0.5);
-      animation: pulse-status 1s ease-in-out infinite;
-    }
-
-    @keyframes pulse-status {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-
-    .login-section {
-      padding: 60px;
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 30px;
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .main-interface {
-      display: none;
-      padding: 40px;
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 30px;
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .current-track {
-      background: rgba(0, 0, 0, 0.4);
-      padding: 30px;
+    .main-card {
+      background: rgba(255, 255, 255, 0.05);
       border-radius: 20px;
-      margin: 30px 0;
-      position: relative;
-      overflow: hidden;
+      padding: 30px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .track-info {
+      margin-bottom: 30px;
     }
 
     .track-name {
-      font-size: 1.8em;
-      font-weight: 700;
-      margin-bottom: 8px;
+      font-size: 1.4em;
+      font-weight: 600;
+      margin-bottom: 5px;
     }
 
     .track-artist {
-      font-size: 1.2em;
-      opacity: 0.8;
-      margin-bottom: 15px;
-      font-weight: 300;
-    }
-
-    .track-progress {
-      font-size: 0.9em;
       opacity: 0.7;
-      font-variant-numeric: tabular-nums;
+      margin-bottom: 10px;
     }
 
-    .waveform-container {
-      height: 80px;
-      margin: 20px 0;
-      position: relative;
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 10px;
-      overflow: hidden;
-    }
-
-    .waveform {
-      position: absolute;
-      bottom: 0;
+    .progress-bar {
       width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 15px 0;
+    }
+
+    .progress-fill {
       height: 100%;
+      background: #1db954;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .time-display {
       display: flex;
-      align-items: flex-end;
-      justify-content: space-around;
-      padding: 0 10px;
+      justify-content: space-between;
+      font-size: 0.85em;
+      opacity: 0.6;
     }
 
-    .wave-bar {
-      width: 3px;
-      background: linear-gradient(to top, #1db954, #1ed760);
-      border-radius: 3px;
-      transition: height 0.2s ease;
+    .beat-indicator {
+      display: inline-flex;
+      gap: 5px;
+      margin: 20px 0;
     }
 
-    .beat-marker {
-      position: absolute;
-      top: 0;
-      width: 2px;
-      height: 100%;
-      background: rgba(255, 255, 255, 0.8);
-      box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-      animation: scan 2s linear infinite;
-    }
-
-    @keyframes scan {
-      0% { left: 0; }
-      100% { left: 100%; }
-    }
-
-    .neural-network {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      width: 60px;
-      height: 60px;
-      opacity: 0.3;
-    }
-
-    .neuron {
-      position: absolute;
-      width: 8px;
-      height: 8px;
-      background: #8a2be2;
+    .beat-dot {
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
-      animation: neuron-pulse 2s ease-in-out infinite;
+      background: rgba(29, 185, 84, 0.3);
+      transition: all 0.1s ease;
     }
 
-    @keyframes neuron-pulse {
-      0%, 100% { transform: scale(1); opacity: 0.5; }
-      50% { transform: scale(1.5); opacity: 1; }
+    .beat-dot.active {
+      background: #1db954;
+      transform: scale(1.5);
     }
 
     .controls {
-      margin: 40px 0;
       display: flex;
+      gap: 15px;
       justify-content: center;
-      gap: 20px;
-      flex-wrap: wrap;
+      margin: 30px 0;
     }
 
     .btn {
-      padding: 18px 40px;
-      font-size: 1.1em;
+      padding: 12px 30px;
       border: none;
-      border-radius: 50px;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 25px;
       font-weight: 600;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .btn::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 0;
-      height: 0;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.2);
-      transform: translate(-50%, -50%);
-      transition: width 0.6s, height 0.6s;
-    }
-
-    .btn:active::before {
-      width: 300px;
-      height: 300px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 1em;
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, #1db954, #1ed760);
+      background: #1db954;
       color: white;
-      box-shadow: 0 4px 20px rgba(29, 185, 84, 0.3);
     }
 
     .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(29, 185, 84, 0.5);
+      background: #1ed760;
+      transform: translateY(-1px);
     }
 
     .btn-secondary {
       background: rgba(255, 255, 255, 0.1);
       color: white;
-      border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .btn-secondary:hover:not(:disabled) {
       background: rgba(255, 255, 255, 0.15);
-      border-color: rgba(255, 255, 255, 0.3);
     }
 
     .btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
-      transform: none !important;
     }
 
-    .ai-learning-panel {
-      background: linear-gradient(135deg, rgba(138, 43, 226, 0.1), rgba(29, 185, 84, 0.1));
-      border: 1px solid rgba(138, 43, 226, 0.3);
-      border-radius: 20px;
-      padding: 30px;
-      margin: 30px 0;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .ai-learning-panel::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      right: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle, rgba(138, 43, 226, 0.2) 0%, transparent 70%);
-      animation: rotate-gradient 20s linear infinite;
-    }
-
-    @keyframes rotate-gradient {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .ai-metric {
-      display: inline-block;
-      margin: 10px 15px;
+    .status {
+      margin: 20px 0;
       padding: 10px 20px;
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 25px;
-      font-size: 0.9em;
-      position: relative;
-      z-index: 1;
-    }
-
-    .metric-value {
-      font-weight: bold;
-      color: #1ed760;
-      font-size: 1.1em;
-    }
-
-    .beat-prediction {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      background: rgba(138, 43, 226, 0.2);
-      padding: 8px 16px;
       border-radius: 20px;
-      font-size: 0.85em;
-      display: none;
+      font-size: 0.9em;
+      display: inline-block;
     }
 
-    .beat-prediction.active {
-      display: block;
-      animation: fade-in 0.3s ease;
+    .status.ready {
+      background: rgba(29, 185, 84, 0.2);
+      color: #1ed760;
     }
 
-    @keyframes fade-in {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
+    .status.processing {
+      background: rgba(255, 165, 0, 0.2);
+      color: orange;
     }
 
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 20px;
-      margin: 30px 0;
+    .status.error {
+      background: rgba(255, 0, 0, 0.2);
+      color: #ff4444;
     }
 
-    .stat-card {
-      background: rgba(255, 255, 255, 0.05);
-      padding: 25px;
+    .queue-preview {
+      margin-top: 30px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.03);
       border-radius: 15px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      transition: all 0.3s ease;
+      font-size: 0.9em;
     }
 
-    .stat-card:hover {
-      background: rgba(255, 255, 255, 0.08);
-      transform: translateY(-2px);
+    .queue-label {
+      opacity: 0.6;
+      margin-bottom: 5px;
     }
 
-    .stat-number {
-      font-size: 2.5em;
-      font-weight: 800;
-      background: linear-gradient(45deg, #1db954, #1ed760);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      margin: 20px 0;
+      padding: 20px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.8em;
+      font-weight: 700;
+      color: #1db954;
     }
 
     .stat-label {
-      font-size: 0.9em;
-      opacity: 0.8;
+      font-size: 0.8em;
+      opacity: 0.6;
       margin-top: 5px;
     }
 
-    .loading-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
+    .login-section {
+      text-align: center;
     }
 
-    .loading-overlay.active {
-      display: flex;
+    .login-section h2 {
+      margin-bottom: 20px;
     }
 
-    .dna-loader {
-      width: 60px;
-      height: 60px;
-      position: relative;
+    .login-section p {
+      margin-bottom: 30px;
+      opacity: 0.8;
+      line-height: 1.6;
     }
 
-    .dna-strand {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      border: 3px solid transparent;
+    /* Simple loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid transparent;
       border-top-color: #1db954;
       border-radius: 50%;
-      animation: dna-spin 1s linear infinite;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-left: 10px;
     }
 
-    .dna-strand:nth-child(2) {
-      border-top-color: #1ed760;
-      animation-delay: 0.2s;
-    }
-
-    .dna-strand:nth-child(3) {
-      border-top-color: #8a2be2;
-      animation-delay: 0.4s;
-    }
-
-    @keyframes dna-spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    @media (max-width: 768px) {
-      .header h1 { font-size: 3em; }
-      .controls { flex-direction: column; }
-      .btn { width: 100%; }
-      .ai-evolution-status { position: relative; top: 0; right: 0; margin: 20px 0; }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
-  <div class="ai-evolution-status">
-    <div>AI Evolution: <span class="evolution-level" id="evolution-level">Level 1</span></div>
-    <div style="font-size: 0.8em; opacity: 0.7;">Self-improving neural network</div>
-  </div>
-
   <div class="container">
-    <div class="header">
-      <h1>Smart Beat Skip</h1>
-      <p class="subtitle">Self-evolving AI beat synchronization</p>
-    </div>
+    <h1>Seamless Beat Skip</h1>
+    <p class="subtitle">Instant beat-matched transitions</p>
 
-    <div id="status" class="status disconnected">Initializing AI...</div>
-
-    <div id="login-section" class="login-section">
-      <h2 style="margin-bottom: 20px; font-size: 2em; font-weight: 300;">🧠 Intelligent Music AI</h2>
-      <p style="margin-bottom: 30px; line-height: 1.6; opacity: 0.9;">
-        Experience the future of music skipping. Our self-improving AI learns from every skip,
-        prebuffers upcoming tracks, and ensures zero-latency beat-matched transitions.
-        The more you use it, the smarter it gets.
+    <div id="login-section" class="login-section main-card">
+      <h2>🎵 Smart Music Transitions</h2>
+      <p>
+        Skip songs with perfect beat matching. No delays, no silence, just smooth transitions
+        that maintain the groove. Works with your regular Spotify controls too.
       </p>
       <button onclick="login()" class="btn btn-primary">Connect Spotify</button>
-      <p style="margin-top: 20px; font-size: 0.9em; opacity: 0.6;">
-        Premium account required • AI improves with usage
-      </p>
     </div>
 
-    <div id="main-interface" class="main-interface">
-      <div class="current-track">
-        <div class="neural-network">
-          <div class="neuron" style="top: 10%; left: 20%; animation-delay: 0s;"></div>
-          <div class="neuron" style="top: 50%; left: 50%; animation-delay: 0.5s;"></div>
-          <div class="neuron" style="top: 80%; left: 30%; animation-delay: 1s;"></div>
+    <div id="main-interface" style="display: none;">
+      <div class="main-card">
+        <div class="track-info">
+          <div class="track-name" id="track-name">No track playing</div>
+          <div class="track-artist" id="track-artist">Start playing music</div>
+          
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          
+          <div class="time-display">
+            <span id="time-current">0:00</span>
+            <span id="time-total">0:00</span>
+          </div>
         </div>
-        
-        <div class="track-name" id="track-name">Waiting for music...</div>
-        <div class="track-artist" id="track-artist">Start playing in Spotify</div>
-        <div class="track-progress" id="track-progress">0:00 / 0:00</div>
-        
-        <div class="waveform-container">
-          <div class="waveform" id="waveform"></div>
-          <div class="beat-marker"></div>
+
+        <div class="beat-indicator">
+          <div class="beat-dot"></div>
+          <div class="beat-dot"></div>
+          <div class="beat-dot"></div>
+          <div class="beat-dot"></div>
         </div>
-        
-        <div class="beat-prediction" id="beat-prediction">
-          Next beat in: <span id="next-beat-time">0.0s</span>
+
+        <div class="controls">
+          <button onclick="skipWithBeats()" class="btn btn-primary" id="skip-btn">
+            Skip ⚡
+          </button>
+          <button onclick="togglePlayPause()" class="btn btn-secondary" id="play-btn">
+            Play
+          </button>
+        </div>
+
+        <div id="status" class="status ready">Ready</div>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-value" id="skip-count">0</div>
+            <div class="stat-label">Skips</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="beat-accuracy">--</div>
+            <div class="stat-label">BPM</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="transition-time">0ms</div>
+            <div class="stat-label">Speed</div>
+          </div>
+        </div>
+
+        <div class="queue-preview">
+          <div class="queue-label">Next up:</div>
+          <div id="next-track">Loading...</div>
         </div>
       </div>
 
-      <div class="controls">
-        <button onclick="smartSkip()" class="btn btn-primary" id="skip-btn">
-          ⚡ Smart Skip
-        </button>
-        <button onclick="togglePlayPause()" class="btn btn-secondary" id="play-btn">
-          ▶️ Play
-        </button>
-        <button onclick="toggleAIMode()" class="btn btn-secondary" id="ai-mode-btn">
-          🧠 AI: Active
-        </button>
-      </div>
-
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-number" id="skip-count">0</div>
-          <div class="stat-label">Smart Skips</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number" id="sync-accuracy">95%</div>
-          <div class="stat-label">Sync Accuracy</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number" id="latency">0ms</div>
-          <div class="stat-label">Transition Time</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number" id="ai-predictions">0</div>
-          <div class="stat-label">AI Predictions</div>
-        </div>
-      </div>
-
-      <div class="ai-learning-panel">
-        <h3 style="margin-bottom: 20px; font-weight: 300; font-size: 1.4em;">
-          🧬 AI Learning Metrics
-        </h3>
-        <div id="ai-metrics">
-          <div class="ai-metric">
-            Pattern Recognition: <span class="metric-value" id="pattern-score">0%</span>
-          </div>
-          <div class="ai-metric">
-            Beat Prediction: <span class="metric-value" id="beat-pred-score">0%</span>
-          </div>
-          <div class="ai-metric">
-            Transition Quality: <span class="metric-value" id="transition-score">0%</span>
-          </div>
-          <div class="ai-metric">
-            Learning Rate: <span class="metric-value" id="learning-rate">1.0x</span>
-          </div>
-        </div>
-        <p style="margin-top: 20px; font-size: 0.9em; opacity: 0.7;">
-          AI Status: <span id="ai-status-text">Analyzing your music patterns...</span>
-        </p>
-      </div>
-
-      <button onclick="logout()" class="btn btn-secondary" style="margin-top: 30px;">
+      <button onclick="logout()" class="btn btn-secondary" style="margin-top: 20px;">
         Disconnect
       </button>
-    </div>
-  </div>
-
-  <div class="loading-overlay" id="loading-overlay">
-    <div class="dna-loader">
-      <div class="dna-strand"></div>
-      <div class="dna-strand"></div>
-      <div class="dna-strand"></div>
     </div>
   </div>
 
@@ -577,506 +320,131 @@
       'user-read-playback-state',
       'user-modify-playback-state',
       'user-read-currently-playing',
-      'user-read-playback-position',
-      'streaming',
-      'user-read-recently-played',
-      'user-library-read'
+      'streaming'
     ];
 
     // Global state
     let accessToken = null;
     let currentTrack = null;
+    let nextTrackAnalysis = null;
+    let isSkipping = false;
     let skipCount = 0;
-    let updateInterval = null;
-    let isProcessing = false;
     let lastTrackId = null;
-    let lastPosition = 0;
-    let manualSkipInProgress = false;
-    let aiCore = null;
+    let monitorInterval = null;
+    let beatInterval = null;
+    let progressInterval = null;
+    let currentBPM = 0;
+    let prebufferTimeout = null;
 
-    // Self-Improving AI System
-    class SmartBeatAI {
+    // Beat detection and analysis cache
+    const analysisCache = new Map();
+    const CACHE_DURATION = 3600000; // 1 hour
+
+    // Professional beat detection based on DJ techniques
+    class BeatMatcher {
       constructor() {
-        // Neural network-inspired learning system
-        this.neurons = {
-          pattern: { weight: 0.5, bias: 0.1 },
-          timing: { weight: 0.5, bias: 0.1 },
-          energy: { weight: 0.5, bias: 0.1 },
-          transition: { weight: 0.5, bias: 0.1 }
-        };
-        
-        // Learning memory
-        this.memory = {
-          trackPatterns: new Map(),
-          transitionHistory: [],
-          beatPredictions: [],
-          userPreferences: {
-            avgSkipPoint: 0.3,
-            preferredTransitionTime: 0,
-            energyPreference: 0.5
-          }
-        };
-        
-        // Performance metrics
-        this.metrics = {
-          accuracy: 95,
-          predictionSuccess: 0,
-          totalPredictions: 0,
-          evolutionLevel: 1,
-          learningRate: 1.0
-        };
-        
-        // Prebuffer system
-        this.prebuffer = {
-          nextTrack: null,
-          analysisCache: new Map(),
-          preloadedBeats: new Map()
-        };
-        
-        // Real-time analysis
-        this.audioContext = null;
-        this.analyser = null;
-        this.dataArray = null;
-        
-        // Initialize
-        this.initializeAudioAnalysis();
-        this.startSelfImprovement();
+        this.phraseLength = 16; // 16 bar phrases (standard in electronic music)
+        this.beatsPerBar = 4;
       }
 
-      async initializeAudioAnalysis() {
+      // Analyze track for beat matching
+      async analyze(trackId) {
+        // Check cache first
+        const cached = analysisCache.get(trackId);
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+          return cached.data;
+        }
+
         try {
-          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          this.analyser = this.audioContext.createAnalyser();
-          this.analyser.fftSize = 2048;
-          this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-        } catch (error) {
-          console.log('Audio context initialization deferred');
-        }
-      }
-
-      // Self-improvement loop
-      startSelfImprovement() {
-        setInterval(() => {
-          this.evolve();
-          this.optimizeWeights();
-          this.updateMetrics();
-        }, 5000);
-      }
-
-      // Neural network evolution
-      evolve() {
-        // Adjust weights based on performance
-        const successRate = this.metrics.accuracy / 100;
-        
-        Object.keys(this.neurons).forEach(key => {
-          const neuron = this.neurons[key];
-          // Adaptive weight adjustment
-          neuron.weight = neuron.weight * 0.9 + successRate * 0.1;
-          neuron.bias = neuron.bias * 0.95 + (Math.random() - 0.5) * 0.05;
-        });
-        
-        // Level up if performing well
-        if (this.metrics.accuracy > 90 && this.memory.transitionHistory.length > 10) {
-          this.metrics.evolutionLevel = Math.min(10, Math.floor(this.metrics.accuracy / 10));
-          this.metrics.learningRate = 1 + (this.metrics.evolutionLevel * 0.1);
-        }
-        
-        this.updateEvolutionDisplay();
-      }
-
-      optimizeWeights() {
-        // Analyze recent transitions
-        const recentTransitions = this.memory.transitionHistory.slice(-20);
-        if (recentTransitions.length < 5) return;
-        
-        // Calculate optimal weights
-        let totalSuccess = 0;
-        recentTransitions.forEach(transition => {
-          if (transition.success) totalSuccess++;
-        });
-        
-        const successRate = totalSuccess / recentTransitions.length;
-        this.metrics.accuracy = Math.round(successRate * 100);
-      }
-
-      // Prebuffer next track for instant transitions
-      async prebufferNextTrack(queue) {
-        if (!queue || queue.length === 0) return;
-        
-        const nextTrack = queue[0];
-        if (this.prebuffer.nextTrack?.id === nextTrack.id) return;
-        
-        this.prebuffer.nextTrack = nextTrack;
-        
-        // Analyze in background
-        setTimeout(async () => {
-          const analysis = await this.analyzeTrack(nextTrack.id);
-          if (analysis) {
-            this.prebuffer.analysisCache.set(nextTrack.id, analysis);
-            this.predictOptimalBeats(analysis);
-          }
-        }, 0);
-      }
-
-      // Advanced track analysis with learning
-      async analyzeTrack(trackId) {
-        // Check memory first
-        if (this.prebuffer.analysisCache.has(trackId)) {
-          return this.prebuffer.analysisCache.get(trackId);
-        }
-        
-        try {
-          // Get audio features
+          // Get audio features for BPM and key
           const features = await spotifyRequest(`/audio-features/${trackId}`);
-          if (!features) return this.generateSmartAnalysis(trackId);
-          
-          // Get track info
-          const track = await spotifyRequest(`/tracks/${trackId}`);
-          
-          // Deep analysis
+          if (!features) return this.generateFallback();
+
           const analysis = {
-            id: trackId,
-            tempo: features.tempo || 120,
-            energy: features.energy || 0.5,
-            danceability: features.danceability || 0.5,
-            valence: features.valence || 0.5,
-            time_signature: features.time_signature || 4,
+            bpm: features.tempo,
             key: features.key,
             mode: features.mode,
-            duration_ms: features.duration_ms,
-            loudness: features.loudness || -10,
-            // AI-enhanced properties
-            predictedBeats: this.generateBeatMap(features),
-            optimalSkipPoints: this.calculateOptimalSkipPoints(features),
-            transitionQuality: this.predictTransitionQuality(features)
+            energy: features.energy,
+            danceability: features.danceability,
+            duration: features.duration_ms,
+            timeSignature: features.time_signature || 4,
+            
+            // Calculate beat grid
+            beatDuration: 60000 / features.tempo, // ms per beat
+            barDuration: (60000 / features.tempo) * this.beatsPerBar,
+            phraseDuration: (60000 / features.tempo) * this.beatsPerBar * this.phraseLength,
+            
+            // DJ-friendly cue points (after intro, usually 16-32 bars in)
+            cuePoints: this.calculateCuePoints(features)
           };
-          
-          // Learn from this track
-          this.learnTrackPattern(trackId, analysis);
-          
+
+          // Cache the analysis
+          analysisCache.set(trackId, { data: analysis, timestamp: Date.now() });
           return analysis;
+
         } catch (error) {
-          return this.generateSmartAnalysis(trackId);
+          console.error('Analysis failed:', error);
+          return this.generateFallback();
         }
       }
 
-      // Generate beat map using AI prediction
-      generateBeatMap(features) {
-        const msPerBeat = 60000 / features.tempo;
-        const totalBeats = Math.floor(features.duration_ms / msPerBeat);
-        const beats = [];
-        
-        for (let i = 0; i < totalBeats; i++) {
-          beats.push({
-            time: i * msPerBeat,
-            strength: this.predictBeatStrength(i, features),
-            isDownbeat: i % features.time_signature === 0
-          });
+      calculateCuePoints(features) {
+        const beatDuration = 60000 / features.tempo;
+        const barDuration = beatDuration * this.beatsPerBar;
+        const phraseDuration = barDuration * this.phraseLength;
+
+        // Standard DJ cue points
+        return [
+          phraseDuration,           // After first phrase (intro)
+          phraseDuration * 2,       // Second phrase
+          phraseDuration * 4,       // Main section
+          features.duration_ms * 0.25  // 25% in (usually past intro)
+        ].filter(point => point < features.duration_ms * 0.8); // Not too close to end
+      }
+
+      // Find optimal transition point
+      findTransitionPoint(currentPos, currentAnalysis, nextAnalysis) {
+        if (!currentAnalysis || !nextAnalysis) return 0;
+
+        // Calculate current position in phrases
+        const currentPhrase = Math.floor(currentPos / currentAnalysis.phraseDuration);
+        const positionInPhrase = currentPos % currentAnalysis.phraseDuration;
+        const percentInPhrase = positionInPhrase / currentAnalysis.phraseDuration;
+
+        // Find best cue point in next track
+        let targetCue = nextAnalysis.cuePoints[0] || 0;
+
+        // If we're early in a phrase, match to the same relative position
+        if (percentInPhrase < 0.5) {
+          // Find a cue point that aligns with our current phrase position
+          const idealTarget = percentInPhrase * nextAnalysis.phraseDuration;
+          targetCue = nextAnalysis.cuePoints.reduce((best, cue) => {
+            const currentDiff = Math.abs(best - idealTarget);
+            const newDiff = Math.abs(cue - idealTarget);
+            return newDiff < currentDiff ? cue : best;
+          }, nextAnalysis.cuePoints[0]);
         }
-        
-        return beats;
+
+        return Math.max(0, Math.floor(targetCue));
       }
 
-      predictBeatStrength(beatIndex, features) {
-        // Neural network-inspired beat strength prediction
-        const cyclePosition = beatIndex % features.time_signature;
-        const energyFactor = features.energy * this.neurons.energy.weight;
-        const patternFactor = (cyclePosition === 0 ? 1 : 0.7) * this.neurons.pattern.weight;
-        
-        return Math.min(1, energyFactor + patternFactor + this.neurons.pattern.bias);
-      }
-
-      calculateOptimalSkipPoints(features) {
-        // AI determines best points to skip into the track
-        const points = [];
-        const skipInterval = features.time_signature * (60000 / features.tempo);
-        
-        // Generate optimal entry points
-        for (let time = 0; time < features.duration_ms; time += skipInterval) {
-          const quality = this.evaluateSkipPoint(time, features);
-          if (quality > 0.7) {
-            points.push({ time, quality });
-          }
-        }
-        
-        return points.sort((a, b) => b.quality - a.quality).slice(0, 10);
-      }
-
-      evaluateSkipPoint(time, features) {
-        const relativePosition = time / features.duration_ms;
-        
-        // Avoid very start and end
-        if (relativePosition < 0.05 || relativePosition > 0.95) return 0;
-        
-        // Prefer points after intro (usually 10-30 seconds)
-        const introBonus = time > 10000 && time < 30000 ? 0.2 : 0;
-        
-        // Energy-based scoring
-        const energyScore = features.energy * this.neurons.energy.weight;
-        
-        // User preference learning
-        const preferenceScore = Math.abs(relativePosition - this.memory.userPreferences.avgSkipPoint);
-        
-        return Math.min(1, 0.5 + introBonus + energyScore - preferenceScore);
-      }
-
-      predictTransitionQuality(features) {
-        // Predict how well this track will transition
+      generateFallback() {
+        // Intelligent fallback for common BPMs
         return {
-          overall: features.danceability * 0.4 + features.energy * 0.3 + features.valence * 0.3,
-          beatMatch: features.tempo > 100 && features.tempo < 140 ? 0.9 : 0.7,
-          energyFlow: features.energy
-        };
-      }
-
-      // Smart fallback when API fails
-      generateSmartAnalysis(trackId) {
-        // Use learned patterns to generate analysis
-        const defaultTempo = this.getLearnedTempo();
-        const analysis = {
-          id: trackId,
-          tempo: defaultTempo,
+          bpm: 128, // Common house/electronic BPM
+          beatDuration: 468.75,
+          barDuration: 1875,
+          phraseDuration: 30000,
+          cuePoints: [30000, 60000], // 30s and 60s
           energy: 0.7,
-          danceability: 0.7,
-          time_signature: 4,
-          duration_ms: 210000, // 3.5 min average
-          predictedBeats: this.generateBeatMap({ tempo: defaultTempo, time_signature: 4, duration_ms: 210000 }),
-          optimalSkipPoints: [
-            { time: 15000, quality: 0.9 },
-            { time: 30000, quality: 0.85 },
-            { time: 45000, quality: 0.8 }
-          ],
-          transitionQuality: { overall: 0.8, beatMatch: 0.85, energyFlow: 0.7 }
+          danceability: 0.8
         };
-        
-        return analysis;
-      }
-
-      getLearnedTempo() {
-        // Use historical data to predict tempo
-        if (this.memory.trackPatterns.size === 0) return 120;
-        
-        let totalTempo = 0;
-        let count = 0;
-        
-        this.memory.trackPatterns.forEach(pattern => {
-          if (pattern.tempo) {
-            totalTempo += pattern.tempo;
-            count++;
-          }
-        });
-        
-        return count > 0 ? Math.round(totalTempo / count) : 120;
-      }
-
-      // Learn from each track
-      learnTrackPattern(trackId, analysis) {
-        this.memory.trackPatterns.set(trackId, {
-          tempo: analysis.tempo,
-          energy: analysis.energy,
-          skipPoints: analysis.optimalSkipPoints,
-          lastAnalyzed: Date.now()
-        });
-        
-        // Clean old entries
-        if (this.memory.trackPatterns.size > 1000) {
-          const oldestKey = this.memory.trackPatterns.keys().next().value;
-          this.memory.trackPatterns.delete(oldestKey);
-        }
-      }
-
-      // Calculate perfect sync point with AI enhancement
-      async calculateSyncPoint(fromTrack, toTrack, currentPosition) {
-        const startTime = performance.now();
-        
-        // Get analyses
-        const fromAnalysis = await this.analyzeTrack(fromTrack);
-        const toAnalysis = this.prebuffer.analysisCache.get(toTrack) || await this.analyzeTrack(toTrack);
-        
-        if (!fromAnalysis || !toAnalysis) {
-          return { position: 0, confidence: 50, latency: performance.now() - startTime };
-        }
-        
-        // Find current beat in source track
-        const currentBeat = this.findNearestBeat(fromAnalysis.predictedBeats, currentPosition);
-        const relativePosition = currentPosition / fromAnalysis.duration_ms;
-        
-        // AI-enhanced sync point selection
-        const syncPoint = this.selectOptimalSyncPoint(toAnalysis, relativePosition, fromAnalysis, currentBeat);
-        
-        // Record for learning
-        this.recordTransition(fromTrack, toTrack, currentPosition, syncPoint);
-        
-        const latency = performance.now() - startTime;
-        
-        return {
-          position: syncPoint.time,
-          confidence: Math.round(syncPoint.confidence * 100),
-          latency: Math.round(latency),
-          beatInfo: syncPoint.beatInfo
-        };
-      }
-
-      findNearestBeat(beats, position) {
-        let nearest = beats[0];
-        let minDiff = Math.abs(beats[0].time - position);
-        
-        for (const beat of beats) {
-          const diff = Math.abs(beat.time - position);
-          if (diff < minDiff) {
-            minDiff = diff;
-            nearest = beat;
-          }
-        }
-        
-        return nearest;
-      }
-
-      selectOptimalSyncPoint(toAnalysis, relativePosition, fromAnalysis, currentBeat) {
-        // Check prebuffered optimal points first
-        const optimalPoints = toAnalysis.optimalSkipPoints;
-        
-        // AI decision making
-        let bestPoint = null;
-        let bestScore = 0;
-        
-        // Evaluate each potential sync point
-        for (const point of optimalPoints) {
-          const score = this.evaluateSyncPoint(point, relativePosition, fromAnalysis, toAnalysis, currentBeat);
-          if (score > bestScore) {
-            bestScore = score;
-            bestPoint = point;
-          }
-        }
-        
-        // If no good optimal point, calculate dynamic point
-        if (!bestPoint || bestScore < 0.6) {
-          const targetTime = relativePosition * toAnalysis.duration_ms;
-          const nearestBeat = this.findNearestBeat(toAnalysis.predictedBeats, targetTime);
-          
-          bestPoint = {
-            time: nearestBeat.time,
-            quality: 0.7
-          };
-          bestScore = 0.7;
-        }
-        
-        return {
-          time: bestPoint.time,
-          confidence: bestScore,
-          beatInfo: `Beat-matched at ${Math.round(bestPoint.time / 1000)}s`
-        };
-      }
-
-      evaluateSyncPoint(point, relativePosition, fromAnalysis, toAnalysis, currentBeat) {
-        let score = point.quality;
-        
-        // Tempo compatibility
-        const tempoDiff = Math.abs(fromAnalysis.tempo - toAnalysis.tempo);
-        const tempoScore = 1 - (tempoDiff / 100);
-        score *= (0.7 + tempoScore * 0.3);
-        
-        // Energy flow
-        const energyDiff = Math.abs(fromAnalysis.energy - toAnalysis.energy);
-        const energyScore = 1 - energyDiff;
-        score *= (0.8 + energyScore * 0.2);
-        
-        // Position preference (learned from user)
-        const positionDiff = Math.abs((point.time / toAnalysis.duration_ms) - this.memory.userPreferences.avgSkipPoint);
-        score *= (1 - positionDiff * 0.5);
-        
-        // Neural network adjustment
-        score = score * this.neurons.transition.weight + this.neurons.transition.bias;
-        
-        return Math.max(0, Math.min(1, score));
-      }
-
-      // Record transition for learning
-      recordTransition(fromTrack, toTrack, fromPosition, syncPoint) {
-        const transition = {
-          from: fromTrack,
-          to: toTrack,
-          fromPosition,
-          toPosition: syncPoint.position,
-          confidence: syncPoint.confidence,
-          timestamp: Date.now(),
-          success: true // Will be updated based on user behavior
-        };
-        
-        this.memory.transitionHistory.push(transition);
-        
-        // Update user preferences
-        const relativeSkipPoint = fromPosition / (fromPosition + syncPoint.position);
-        this.memory.userPreferences.avgSkipPoint = 
-          this.memory.userPreferences.avgSkipPoint * 0.9 + relativeSkipPoint * 0.1;
-        
-        // Keep history manageable
-        if (this.memory.transitionHistory.length > 100) {
-          this.memory.transitionHistory.shift();
-        }
-      }
-
-      // Predict beats in real-time
-      predictNextBeat(currentTime, analysis) {
-        if (!analysis || !analysis.predictedBeats) return null;
-        
-        const msPerBeat = 60000 / analysis.tempo;
-        const nextBeatTime = Math.ceil(currentTime / msPerBeat) * msPerBeat;
-        const timeToNext = nextBeatTime - currentTime;
-        
-        this.metrics.totalPredictions++;
-        
-        return {
-          timeToNext: timeToNext / 1000, // Convert to seconds
-          confidence: 0.9
-        };
-      }
-
-      // Update display metrics
-      updateMetrics() {
-        document.getElementById('pattern-score').textContent = 
-          Math.round(this.neurons.pattern.weight * 100) + '%';
-        document.getElementById('beat-pred-score').textContent = 
-          this.metrics.totalPredictions > 0 
-            ? Math.round((this.metrics.predictionSuccess / this.metrics.totalPredictions) * 100) + '%'
-            : '0%';
-        document.getElementById('transition-score').textContent = 
-          Math.round(this.metrics.accuracy) + '%';
-        document.getElementById('learning-rate').textContent = 
-          this.metrics.learningRate.toFixed(1) + 'x';
-      }
-
-      updateEvolutionDisplay() {
-        document.getElementById('evolution-level').textContent = `Level ${this.metrics.evolutionLevel}`;
-        document.getElementById('sync-accuracy').textContent = this.metrics.accuracy + '%';
-      }
-
-      // Generate smart waveform visualization
-      generateWaveform() {
-        const bars = 50;
-        const waveform = document.getElementById('waveform');
-        waveform.innerHTML = '';
-        
-        for (let i = 0; i < bars; i++) {
-          const bar = document.createElement('div');
-          bar.className = 'wave-bar';
-          bar.style.height = Math.random() * 60 + 20 + 'px';
-          waveform.appendChild(bar);
-        }
-      }
-
-      // Cleanup
-      destroy() {
-        if (this.audioContext) {
-          this.audioContext.close();
-        }
       }
     }
 
-    // Initialize AI
-    aiCore = new SmartBeatAI();
+    const beatMatcher = new BeatMatcher();
 
-    // Authentication functions
+    // Spotify Auth Functions
     async function generateCodeChallenge(codeVerifier) {
       const encoder = new TextEncoder();
       const data = encoder.encode(codeVerifier);
@@ -1089,61 +457,42 @@
 
     function generateRandomString(length) {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-      let result = '';
-      for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return result;
+      return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     }
 
     async function login() {
-      try {
-        showStatus('Connecting to Spotify...', 'working');
-        
-        const state = generateRandomString(16);
-        const codeVerifier = generateRandomString(128);
-        const codeChallenge = await generateCodeChallenge(codeVerifier);
-        
-        sessionStorage.setItem('code_verifier', codeVerifier);
-        sessionStorage.setItem('state', state);
-        
-        const authUrl = new URL('https://accounts.spotify.com/authorize');
-        authUrl.searchParams.set('response_type', 'code');
-        authUrl.searchParams.set('client_id', CLIENT_ID);
-        authUrl.searchParams.set('scope', SCOPES.join(' '));
-        authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
-        authUrl.searchParams.set('state', state);
-        authUrl.searchParams.set('code_challenge_method', 'S256');
-        authUrl.searchParams.set('code_challenge', codeChallenge);
-        
-        window.location = authUrl.toString();
-      } catch (error) {
-        showStatus('Login failed: ' + error.message, 'disconnected');
-      }
+      const state = generateRandomString(16);
+      const codeVerifier = generateRandomString(128);
+      const codeChallenge = await generateCodeChallenge(codeVerifier);
+      
+      sessionStorage.setItem('code_verifier', codeVerifier);
+      sessionStorage.setItem('state', state);
+      
+      const authUrl = new URL('https://accounts.spotify.com/authorize');
+      authUrl.searchParams.append('response_type', 'code');
+      authUrl.searchParams.append('client_id', CLIENT_ID);
+      authUrl.searchParams.append('scope', SCOPES.join(' '));
+      authUrl.searchParams.append('redirect_uri', REDIRECT_URI);
+      authUrl.searchParams.append('state', state);
+      authUrl.searchParams.append('code_challenge_method', 'S256');
+      authUrl.searchParams.append('code_challenge', codeChallenge);
+      
+      window.location = authUrl.toString();
     }
 
     async function handleRedirect() {
       const params = new URLSearchParams(window.location.search);
       const code = params.get('code');
       const state = params.get('state');
-      const error = params.get('error');
-
-      if (error) {
-        showStatus('Authentication failed: ' + error, 'disconnected');
-        return;
-      }
 
       if (!code) return;
 
-      try {
-        showStatus('Initializing AI systems...', 'working');
-        
-        const storedState = sessionStorage.getItem('state');
-        if (state !== storedState) {
-          throw new Error('Invalid state parameter');
-        }
+      const storedState = sessionStorage.getItem('state');
+      if (state !== storedState) return;
 
-        const codeVerifier = sessionStorage.getItem('code_verifier');
+      const codeVerifier = sessionStorage.getItem('code_verifier');
+      
+      try {
         const response = await fetch('https://accounts.spotify.com/api/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1157,284 +506,218 @@
         });
 
         const data = await response.json();
-        if (!data.access_token) {
-          throw new Error('No access token received');
+        if (data.access_token) {
+          accessToken = data.access_token;
+          sessionStorage.setItem('access_token', data.access_token);
+          window.history.replaceState({}, document.title, window.location.pathname);
+          await initializeApp();
         }
-
-        accessToken = data.access_token;
-        sessionStorage.setItem('access_token', data.access_token);
-        
-        window.history.replaceState({}, document.title, window.location.pathname);
-        sessionStorage.removeItem('code_verifier');
-        sessionStorage.removeItem('state');
-        
-        await initializeApp();
-        
       } catch (error) {
-        showStatus('Authentication failed: ' + error.message, 'disconnected');
+        console.error('Auth error:', error);
       }
     }
 
-    // Spotify API functions
+    // Spotify API wrapper
     async function spotifyRequest(endpoint, options = {}) {
       try {
         const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
             ...options.headers
           },
           ...options
         });
 
-        if (response.status === 204) return {};
-        
-        if (!response.ok) {
-          if (response.status === 401) {
-            sessionStorage.removeItem('access_token');
-            window.location.reload();
-          }
-          throw new Error(`HTTP ${response.status}`);
-        }
+        if (response.status === 204) return true;
+        if (!response.ok) return null;
         
         return await response.json();
       } catch (error) {
-        console.error('Spotify API error:', error);
+        console.error('API error:', error);
         return null;
       }
     }
 
-    async function getCurrentPlayback() {
-      return await spotifyRequest('/me/player');
-    }
-
-    async function getUserQueue() {
-      return await spotifyRequest('/me/player/queue');
-    }
-
-    // Ultra-fast smart skip with prebuffering
-    async function smartSkip() {
-      if (isProcessing) return;
-
+    // Core skip function - ULTRA FAST
+    async function skipWithBeats() {
+      if (isSkipping || !currentTrack) return;
+      
+      isSkipping = true;
+      const startTime = performance.now();
+      updateStatus('processing', 'Analyzing beats...');
+      
       try {
-        isProcessing = true;
-        manualSkipInProgress = true;
-        
-        // Show loading instantly
-        showLoadingOverlay();
-        
-        const startTime = performance.now();
-        
-        // Get current state
-        const [playbackState, queue] = await Promise.all([
-          getCurrentPlayback(),
-          getUserQueue()
-        ]);
-        
-        if (!playbackState || !queue?.queue?.length) {
-          throw new Error('No playback or queue');
-        }
+        // Get current playback state
+        const playback = await spotifyRequest('/me/player');
+        if (!playback) throw new Error('No playback');
 
-        const currentPosition = playbackState.progress_ms;
-        const currentTrackId = playbackState.item.id;
-        const nextTrack = queue.queue[0];
+        const currentPos = playback.progress_ms;
+        const currentAnalysis = await beatMatcher.analyze(currentTrack.id);
         
-        // AI calculates perfect sync point
-        updateAIStatus('AI calculating perfect sync point...');
-        const syncData = await aiCore.calculateSyncPoint(
-          currentTrackId,
-          nextTrack.id,
-          currentPosition
-        );
+        // Execute skip immediately
+        await spotifyRequest('/me/player/next', { method: 'POST' });
         
-        // Execute skip with minimal latency
-        await executeSmartSkip(nextTrack.id, syncData);
+        // If we have prebuffered analysis, use it
+        if (nextTrackAnalysis) {
+          const transitionPoint = beatMatcher.findTransitionPoint(
+            currentPos, 
+            currentAnalysis, 
+            nextTrackAnalysis
+          );
+          
+          // Quick poll for track change
+          let attempts = 0;
+          while (attempts < 20) { // Max 1 second
+            await new Promise(r => setTimeout(r, 50));
+            
+            const newPlayback = await spotifyRequest('/me/player');
+            if (newPlayback?.item?.id !== currentTrack.id) {
+              // Track changed - apply seek
+              if (transitionPoint > 500) {
+                await spotifyRequest(`/me/player/seek?position_ms=${transitionPoint}`, {
+                  method: 'PUT'
+                });
+              }
+              break;
+            }
+            attempts++;
+          }
+        }
         
-        // Update metrics
-        const totalLatency = performance.now() - startTime;
-        document.getElementById('latency').textContent = Math.round(totalLatency) + 'ms';
+        const elapsed = Math.round(performance.now() - startTime);
+        document.getElementById('transition-time').textContent = elapsed + 'ms';
         
         skipCount++;
-        updateStats();
+        document.getElementById('skip-count').textContent = skipCount;
         
-        // Success feedback
-        showStatus(`⚡ Perfect sync in ${Math.round(totalLatency)}ms!`, 'connected');
-        hideLoadingOverlay();
-
+        updateStatus('ready', 'Seamless transition!');
+        
       } catch (error) {
         console.error('Skip error:', error);
-        // Fallback to fast skip
-        await spotifyRequest('/me/player/next', { method: 'POST' });
-        skipCount++;
-        updateStats();
-        showStatus('✓ Skip completed', 'connected');
-        hideLoadingOverlay();
+        updateStatus('error', 'Skip failed');
       } finally {
-        isProcessing = false;
-        setTimeout(() => manualSkipInProgress = false, 2000);
+        isSkipping = false;
+        document.getElementById('skip-btn').disabled = false;
       }
     }
 
-    async function executeSmartSkip(nextTrackId, syncData) {
-      // Skip to next track
-      await spotifyRequest('/me/player/next', { method: 'POST' });
-      
-      // Ultra-fast track change detection
-      let attempts = 0;
-      const checkInterval = 50; // 50ms checks
-      
-      while (attempts < 20) { // Max 1 second wait
-        await new Promise(resolve => setTimeout(resolve, checkInterval));
-        
-        const state = await getCurrentPlayback();
-        if (state?.item?.id === nextTrackId) {
-          // Apply calculated seek position immediately
-          if (syncData.position > 500) {
-            await spotifyRequest(`/me/player/seek?position_ms=${Math.floor(syncData.position)}`, {
-              method: 'PUT'
-            });
-          }
-          
-          // Update AI predictions counter
-          document.getElementById('ai-predictions').textContent = 
-            ++aiCore.metrics.totalPredictions;
-          
-          break;
-        }
-        attempts++;
-      }
-    }
-
-    // Handle external skips with AI
-    async function handleExternalSkip(oldTrackId, newTrackId, lastKnownPosition) {
-      if (manualSkipInProgress || isProcessing) return;
-
+    // Monitor playback and prebuffer
+    async function monitorPlayback() {
       try {
-        updateAIStatus('Detected external skip - applying AI sync...');
+        const playback = await spotifyRequest('/me/player');
         
-        const syncData = await aiCore.calculateSyncPoint(
-          oldTrackId,
-          newTrackId,
-          lastKnownPosition
-        );
-        
-        if (syncData.position > 500) {
-          await spotifyRequest(`/me/player/seek?position_ms=${Math.floor(syncData.position)}`, {
-            method: 'PUT'
-          });
-          
-          skipCount++;
-          updateStats();
-          document.getElementById('latency').textContent = syncData.latency + 'ms';
-          
-          showStatus(`⚡ AI synced in ${syncData.latency}ms`, 'connected');
-        }
-      } catch (error) {
-        console.error('External skip sync failed:', error);
-      }
-    }
-
-    // Real-time playback monitoring with beat prediction
-    async function updatePlaybackInfo() {
-      try {
-        const playbackState = await getCurrentPlayback();
-        
-        if (!playbackState || !playbackState.item) {
+        if (!playback || !playback.item) {
           updateEmptyState();
           return;
         }
 
-        const track = playbackState.item;
+        const track = playback.item;
+        const progress = playback.progress_ms;
+        const duration = track.duration_ms;
         
-        // Update track display
-        document.getElementById('track-name').textContent = track.name;
-        document.getElementById('track-artist').textContent = track.artists.map(a => a.name).join(', ');
-        document.getElementById('track-progress').textContent = 
-          `${formatTime(playbackState.progress_ms)} / ${formatTime(track.duration_ms)}`;
-        document.getElementById('play-btn').innerHTML = playbackState.is_playing ? '⏸️ Pause' : '▶️ Play';
-
-        // Detect track changes
-        if (lastTrackId && lastTrackId !== track.id && !manualSkipInProgress) {
-          handleExternalSkip(lastTrackId, track.id, lastPosition);
+        // Update UI
+        updateTrackDisplay(track, progress, duration);
+        
+        // Handle track changes
+        if (lastTrackId && lastTrackId !== track.id) {
+          // Track changed naturally (not from our skip)
+          if (!isSkipping) {
+            handleNaturalTrackChange();
+          }
         }
-
-        // Update tracking
+        
         lastTrackId = track.id;
-        lastPosition = playbackState.progress_ms;
-
-        // Track change - analyze and prebuffer
-        if (!currentTrack || currentTrack.id !== track.id) {
-          currentTrack = track;
-          aiCore.generateWaveform();
-          
-          // Get queue and prebuffer next track
-          const queue = await getUserQueue();
-          if (queue?.queue?.length > 0) {
-            aiCore.prebufferNextTrack(queue.queue);
-          }
+        currentTrack = track;
+        
+        // Update play button
+        document.getElementById('play-btn').textContent = playback.is_playing ? 'Pause' : 'Play';
+        
+        // Prebuffer next track when we're 75% through current track
+        const percentComplete = progress / duration;
+        if (percentComplete > 0.75 && !prebufferTimeout) {
+          prebufferTimeout = setTimeout(prebufferNextTrack, 0);
+        }
+        
+        // Reset prebuffer timeout on new track
+        if (percentComplete < 0.1) {
+          clearTimeout(prebufferTimeout);
+          prebufferTimeout = null;
         }
 
-        // Real-time beat prediction
-        if (playbackState.is_playing && aiCore.prebuffer.analysisCache.has(track.id)) {
-          const analysis = aiCore.prebuffer.analysisCache.get(track.id);
-          const beatPrediction = aiCore.predictNextBeat(playbackState.progress_ms, analysis);
-          
-          if (beatPrediction) {
-            document.getElementById('next-beat-time').textContent = 
-              beatPrediction.timeToNext.toFixed(1) + 's';
-            document.getElementById('beat-prediction').classList.add('active');
-          }
+        // Show BPM if we have it
+        if (currentTrack) {
+          beatMatcher.analyze(currentTrack.id).then(analysis => {
+            if (analysis?.bpm) {
+              currentBPM = Math.round(analysis.bpm);
+              document.getElementById('beat-accuracy').textContent = currentBPM;
+            }
+          });
         }
-
+        
       } catch (error) {
-        console.error('Update error:', error);
+        console.error('Monitor error:', error);
       }
+    }
+
+    // Prebuffer next track analysis
+    async function prebufferNextTrack() {
+      try {
+        const queue = await spotifyRequest('/me/player/queue');
+        if (queue?.queue?.length > 0) {
+          const nextTrack = queue.queue[0];
+          
+          // Update next track display
+          document.getElementById('next-track').textContent = 
+            `${nextTrack.name} - ${nextTrack.artists[0].name}`;
+          
+          // Analyze in background
+          nextTrackAnalysis = await beatMatcher.analyze(nextTrack.id);
+          console.log('Prebuffered next track:', nextTrack.name);
+        }
+      } catch (error) {
+        console.error('Prebuffer error:', error);
+      }
+    }
+
+    // Handle natural track progression
+    function handleNaturalTrackChange() {
+      // Clear prebuffer
+      nextTrackAnalysis = null;
+      clearTimeout(prebufferTimeout);
+      prebufferTimeout = null;
+      
+      // Update stats
+      updateStatus('ready', 'Track changed');
+    }
+
+    // UI Updates
+    function updateTrackDisplay(track, progress, duration) {
+      document.getElementById('track-name').textContent = track.name;
+      document.getElementById('track-artist').textContent = 
+        track.artists.map(a => a.name).join(', ');
+      
+      // Update progress
+      const percent = (progress / duration) * 100;
+      document.getElementById('progress-fill').style.width = percent + '%';
+      
+      document.getElementById('time-current').textContent = formatTime(progress);
+      document.getElementById('time-total').textContent = formatTime(duration);
     }
 
     function updateEmptyState() {
-      document.getElementById('track-name').textContent = 'Waiting for music...';
-      document.getElementById('track-artist').textContent = 'Start playing in Spotify';
-      document.getElementById('track-progress').textContent = '0:00 / 0:00';
-      document.getElementById('play-btn').innerHTML = '▶️ Play';
-      document.getElementById('beat-prediction').classList.remove('active');
-      lastTrackId = null;
+      document.getElementById('track-name').textContent = 'No track playing';
+      document.getElementById('track-artist').textContent = 'Start playing music';
+      document.getElementById('progress-fill').style.width = '0%';
+      document.getElementById('time-current').textContent = '0:00';
+      document.getElementById('time-total').textContent = '0:00';
+      document.getElementById('beat-accuracy').textContent = '--';
+      currentTrack = null;
     }
 
-    async function togglePlayPause() {
-      try {
-        const playbackState = await getCurrentPlayback();
-        if (!playbackState) return;
-        
-        if (playbackState.is_playing) {
-          await spotifyRequest('/me/player/pause', { method: 'PUT' });
-        } else {
-          await spotifyRequest('/me/player/play', { method: 'PUT' });
-        }
-      } catch (error) {
-        showStatus('Playback control failed', 'disconnected');
-      }
-    }
-
-    function toggleAIMode() {
-      // Toggle AI features (for comparison)
-      const btn = document.getElementById('ai-mode-btn');
-      if (btn.textContent.includes('Active')) {
-        btn.innerHTML = '🧠 AI: Learning';
-        updateAIStatus('AI in learning mode - observing your patterns');
-      } else {
-        btn.innerHTML = '🧠 AI: Active';
-        updateAIStatus('AI active - optimizing every transition');
-      }
-    }
-
-    // UI functions
-    function updateStats() {
-      document.getElementById('skip-count').textContent = skipCount;
-      aiCore.updateMetrics();
-    }
-
-    function updateAIStatus(message) {
-      document.getElementById('ai-status-text').textContent = message;
+    function updateStatus(type, message) {
+      const status = document.getElementById('status');
+      status.className = `status ${type}`;
+      status.innerHTML = type === 'processing' ? message + '<span class="spinner"></span>' : message;
     }
 
     function formatTime(ms) {
@@ -1443,63 +726,59 @@
       return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
 
-    function showStatus(message, type) {
-      const status = document.getElementById('status');
-      status.textContent = message;
-      status.className = `status ${type}`;
+    // Beat visualization
+    function animateBeats() {
+      if (!currentBPM) return;
+      
+      const beatDuration = 60000 / currentBPM;
+      const dots = document.querySelectorAll('.beat-dot');
+      let currentBeat = 0;
+      
+      setInterval(() => {
+        dots.forEach(d => d.classList.remove('active'));
+        dots[currentBeat].classList.add('active');
+        currentBeat = (currentBeat + 1) % dots.length;
+      }, beatDuration);
     }
 
-    function showLoadingOverlay() {
-      document.getElementById('loading-overlay').classList.add('active');
+    // Playback controls
+    async function togglePlayPause() {
+      const playback = await spotifyRequest('/me/player');
+      if (playback?.is_playing) {
+        await spotifyRequest('/me/player/pause', { method: 'PUT' });
+      } else {
+        await spotifyRequest('/me/player/play', { method: 'PUT' });
+      }
     }
 
-    function hideLoadingOverlay() {
-      setTimeout(() => {
-        document.getElementById('loading-overlay').classList.remove('active');
-      }, 300);
-    }
-
+    // Initialize app
     async function initializeApp() {
       document.getElementById('login-section').style.display = 'none';
       document.getElementById('main-interface').style.display = 'block';
       
-      showStatus('🧠 AI systems online!', 'connected');
-      updateAIStatus('Neural network initialized - learning your music taste');
+      updateStatus('ready', 'Ready');
       
-      // Generate initial waveform
-      aiCore.generateWaveform();
+      // Start monitoring with fast interval
+      monitorInterval = setInterval(monitorPlayback, 500);
+      await monitorPlayback();
       
-      // Start real-time monitoring
-      updateInterval = setInterval(updatePlaybackInfo, 500); // Ultra-fast updates
-      await updatePlaybackInfo();
-      
-      // Initialize metrics
-      updateStats();
+      // Start beat animation
+      setTimeout(animateBeats, 1000);
     }
 
     function logout() {
-      if (updateInterval) clearInterval(updateInterval);
-      if (aiCore) aiCore.destroy();
+      clearInterval(monitorInterval);
+      clearInterval(beatInterval);
+      clearInterval(progressInterval);
+      clearTimeout(prebufferTimeout);
       
       accessToken = null;
       sessionStorage.clear();
-      
-      document.getElementById('login-section').style.display = 'block';
-      document.getElementById('main-interface').style.display = 'none';
-      showStatus('Disconnected', 'disconnected');
-      
-      // Reset state
-      currentTrack = null;
-      skipCount = 0;
-      lastTrackId = null;
-      lastPosition = 0;
-      aiCore = new SmartBeatAI();
+      window.location.reload();
     }
 
     // Initialize on load
     window.onload = async function() {
-      showStatus('Initializing AI core...', 'working');
-      
       const storedToken = sessionStorage.getItem('access_token');
       if (storedToken) {
         accessToken = storedToken;
@@ -1507,32 +786,21 @@
       } else {
         await handleRedirect();
       }
-      
-      if (!accessToken) {
-        showStatus('Ready to connect', 'disconnected');
-      }
     };
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (!accessToken) return;
       
-      if (e.code === 'Space' && e.target.tagName !== 'BUTTON') {
-        e.preventDefault();
-        togglePlayPause();
-      } else if (e.code === 'ArrowRight') {
-        e.preventDefault();
-        smartSkip();
-      }
-    });
-
-    // Visibility change - prebuffer when returning
-    document.addEventListener('visibilitychange', async () => {
-      if (!document.hidden && accessToken) {
-        const queue = await getUserQueue();
-        if (queue?.queue?.length > 0) {
-          aiCore.prebufferNextTrack(queue.queue);
-        }
+      switch(e.code) {
+        case 'Space':
+          e.preventDefault();
+          togglePlayPause();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          skipWithBeats();
+          break;
       }
     });
   </script>
