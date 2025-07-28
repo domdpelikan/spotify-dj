@@ -366,7 +366,10 @@
         try {
           // Get audio features for BPM and key
           const features = await spotifyRequest(`/audio-features/${trackId}`);
-          if (!features) return this.generateFallback();
+          if (!features) {
+            console.log('No features available, using fallback');
+            return this.generateFallback();
+          }
 
           const analysis = {
             bpm: features.tempo,
@@ -386,12 +389,14 @@
             cuePoints: this.calculateCuePoints(features)
           };
 
+          console.log(`Track analyzed: ${features.tempo} BPM, cue points:`, analysis.cuePoints);
+
           // Cache the analysis
           analysisCache.set(trackId, { data: analysis, timestamp: Date.now() });
           return analysis;
 
         } catch (error) {
-          console.error('Analysis failed:', error);
+          console.error('Analysis failed, using fallback:', error);
           return this.generateFallback();
         }
       }
@@ -401,39 +406,51 @@
         const barDuration = beatDuration * this.beatsPerBar;
         const phraseDuration = barDuration * this.phraseLength;
 
-        // Standard DJ cue points
-        return [
-          phraseDuration,           // After first phrase (intro)
+        // Standard DJ cue points - make sure we have good ones
+        const cuePoints = [
+          16000,                    // 16 seconds (safe intro skip)
+          phraseDuration,           // First phrase boundary
           phraseDuration * 2,       // Second phrase
-          phraseDuration * 4,       // Main section
-          features.duration_ms * 0.25  // 25% in (usually past intro)
-        ].filter(point => point < features.duration_ms * 0.8); // Not too close to end
+          32000,                    // 32 seconds
+          features.duration_ms * 0.25  // 25% in
+        ].filter(point => point > 10000 && point < features.duration_ms * 0.8)
+          .sort((a, b) => a - b);
+
+        // Always ensure we have at least one cue point
+        if (cuePoints.length === 0) {
+          cuePoints.push(15000); // Default to 15 seconds
+        }
+
+        return cuePoints;
       }
 
       // Find optimal transition point
       findTransitionPoint(currentPos, currentAnalysis, nextAnalysis) {
-        if (!currentAnalysis || !nextAnalysis) return 0;
+        if (!currentAnalysis || !nextAnalysis) {
+          console.log('Missing analysis, defaulting to 15 seconds');
+          return 15000; // Default to 15 seconds if no analysis
+        }
 
         // Calculate current position in phrases
         const currentPhrase = Math.floor(currentPos / currentAnalysis.phraseDuration);
         const positionInPhrase = currentPos % currentAnalysis.phraseDuration;
         const percentInPhrase = positionInPhrase / currentAnalysis.phraseDuration;
 
-        // Find best cue point in next track
-        let targetCue = nextAnalysis.cuePoints[0] || 0;
+        console.log(`Current position: ${currentPos}ms, phrase: ${currentPhrase}, percent in phrase: ${percentInPhrase}`);
 
-        // If we're early in a phrase, match to the same relative position
-        if (percentInPhrase < 0.5) {
-          // Find a cue point that aligns with our current phrase position
-          const idealTarget = percentInPhrase * nextAnalysis.phraseDuration;
-          targetCue = nextAnalysis.cuePoints.reduce((best, cue) => {
-            const currentDiff = Math.abs(best - idealTarget);
-            const newDiff = Math.abs(cue - idealTarget);
-            return newDiff < currentDiff ? cue : best;
-          }, nextAnalysis.cuePoints[0]);
+        // Find best cue point in next track
+        let targetCue = nextAnalysis.cuePoints[0] || 15000;
+
+        // If we have multiple cue points, pick the best one
+        if (nextAnalysis.cuePoints.length > 1) {
+          // If we're early in a phrase, match to a similar position
+          if (percentInPhrase < 0.5 && nextAnalysis.cuePoints.length > 1) {
+            targetCue = nextAnalysis.cuePoints[1]; // Use second cue point
+          }
         }
 
-        return Math.max(0, Math.floor(targetCue));
+        console.log(`Transition point selected: ${targetCue}ms`);
+        return Math.max(1000, Math.floor(targetCue)); // At least 1 second in
       }
 
       generateFallback() {
@@ -443,7 +460,7 @@
           beatDuration: 468.75,
           barDuration: 1875,
           phraseDuration: 30000,
-          cuePoints: [30000, 60000], // 30s and 60s
+          cuePoints: [15000, 30000, 45000], // 15s, 30s, 45s
           energy: 0.7,
           danceability: 0.8
         };
@@ -593,49 +610,65 @@
         }
 
         const currentPos = playback.progress_ms || 0;
+        console.log('Current position:', currentPos);
+        
+        // Get current track analysis
         const currentAnalysis = await beatMatcher.analyze(currentTrack.id);
         
         // Execute skip immediately
+        console.log('Executing skip...');
         const skipResult = await spotifyRequest('/me/player/next', { method: 'POST' });
         if (skipResult === null) {
           throw new Error('Skip failed - Check Spotify');
         }
         
-        // If we have prebuffered analysis, use it
+        // Calculate transition point
+        let transitionPoint = 15000; // Default 15 seconds
+        
         if (nextTrackAnalysis) {
-          const transitionPoint = beatMatcher.findTransitionPoint(
+          transitionPoint = beatMatcher.findTransitionPoint(
             currentPos, 
             currentAnalysis, 
             nextTrackAnalysis
           );
+          console.log('Using prebuffered analysis, transition point:', transitionPoint);
+        } else {
+          console.log('No prebuffered analysis, using default transition point');
+        }
+        
+        // Poll for track change and apply seek
+        let attempts = 0;
+        let trackChanged = false;
+        
+        while (attempts < 30 && !trackChanged) { // Up to 1.5 seconds
+          await new Promise(r => setTimeout(r, 50));
           
-          // Quick poll for track change (max 1 second)
-          let attempts = 0;
-          let trackChanged = false;
-          
-          while (attempts < 20 && !trackChanged) {
-            await new Promise(r => setTimeout(r, 50));
+          const newPlayback = await spotifyRequest('/me/player');
+          if (newPlayback && newPlayback.item && newPlayback.item.id !== currentTrack.id) {
+            trackChanged = true;
+            console.log('Track changed to:', newPlayback.item.name);
             
-            const newPlayback = await spotifyRequest('/me/player');
-            if (newPlayback && newPlayback.item && newPlayback.item.id !== currentTrack.id) {
-              trackChanged = true;
+            // Always apply seek for beat matching
+            if (transitionPoint > 100) { // More than 0.1 seconds
+              console.log(`Seeking to ${transitionPoint}ms for beat match`);
+              const seekResult = await spotifyRequest(
+                `/me/player/seek?position_ms=${transitionPoint}`, 
+                { method: 'PUT' }
+              );
               
-              // Apply seek to transition point
-              if (transitionPoint > 500) {
-                const seekResult = await spotifyRequest(
-                  `/me/player/seek?position_ms=${transitionPoint}`, 
-                  { method: 'PUT' }
-                );
-                console.log(`Seeked to ${transitionPoint}ms`);
+              if (seekResult === null) {
+                console.error('Seek failed, but skip succeeded');
+              } else {
+                console.log('Seek successful!');
               }
-              break;
             }
-            attempts++;
+            break;
           }
-          
-          if (!trackChanged) {
-            console.log('Track change not detected after skip');
-          }
+          attempts++;
+        }
+        
+        if (!trackChanged) {
+          console.log('Track change not detected after 1.5s');
         }
         
         const elapsed = Math.round(performance.now() - startTime);
@@ -644,7 +677,7 @@
         skipCount++;
         document.getElementById('skip-count').textContent = skipCount;
         
-        updateStatus('ready', 'Seamless transition!');
+        updateStatus('ready', trackChanged ? 'Beat matched!' : 'Skipped');
         
         // Clear prebuffer for next track
         nextTrackAnalysis = null;
@@ -655,6 +688,9 @@
       } finally {
         isSkipping = false;
         document.getElementById('skip-btn').disabled = false;
+        
+        // Trigger immediate prebuffer of new next track
+        setTimeout(prebufferNextTrack, 500);
       }
     }
 
@@ -663,12 +699,12 @@
       try {
         const playback = await spotifyRequest('/me/player');
         
-        // Debug logging
-        console.log('Playback state:', playback);
-        
         if (!playback) {
           updateEmptyState();
-          updateStatus('error', 'No active Spotify session. Play music in Spotify first.');
+          // Only show this message if we haven't connected yet
+          if (!currentTrack) {
+            updateStatus('ready', 'Play music in Spotify to begin');
+          }
           return;
         }
         
@@ -691,7 +727,12 @@
         
         // Update UI
         updateTrackDisplay(track, progress, duration);
-        updateStatus('ready', 'Ready');
+        
+        // Only show "Ready" status if we're not already showing an error
+        const currentStatus = document.getElementById('status');
+        if (!currentStatus.classList.contains('error') && !currentStatus.classList.contains('processing')) {
+          updateStatus('ready', 'Ready');
+        }
         
         // Handle track changes
         if (lastTrackId && lastTrackId !== track.id) {
@@ -707,9 +748,9 @@
         // Update play button
         document.getElementById('play-btn').textContent = playback.is_playing ? 'Pause' : 'Play';
         
-        // Prebuffer next track when we're 75% through current track
+        // Prebuffer next track when we're 70% through current track
         const percentComplete = progress / duration;
-        if (percentComplete > 0.75 && !prebufferTimeout) {
+        if (percentComplete > 0.7 && !prebufferTimeout) {
           prebufferTimeout = setTimeout(prebufferNextTrack, 0);
         }
         
@@ -717,6 +758,7 @@
         if (percentComplete < 0.1) {
           clearTimeout(prebufferTimeout);
           prebufferTimeout = null;
+          nextTrackAnalysis = null; // Clear old analysis
         }
 
         // Show BPM if we have it
@@ -731,7 +773,10 @@
         
       } catch (error) {
         console.error('Monitor error:', error);
-        updateStatus('error', 'Connection error - Refresh page');
+        // Don't show connection errors constantly
+        if (!currentTrack) {
+          updateStatus('error', 'Connection error - Refresh page');
+        }
       }
     }
 
@@ -747,11 +792,18 @@
             `${nextTrack.name} - ${nextTrack.artists[0].name}`;
           
           // Analyze in background
+          console.log('Prebuffering:', nextTrack.name);
           nextTrackAnalysis = await beatMatcher.analyze(nextTrack.id);
-          console.log('Prebuffered next track:', nextTrack.name);
+          
+          if (nextTrackAnalysis) {
+            console.log('Prebuffered with cue points:', nextTrackAnalysis.cuePoints);
+          }
+        } else {
+          document.getElementById('next-track').textContent = 'No tracks in queue';
         }
       } catch (error) {
         console.error('Prebuffer error:', error);
+        document.getElementById('next-track').textContent = 'Queue unavailable';
       }
     }
 
@@ -856,13 +908,8 @@
       
       console.log('Connected as:', testConnection.display_name);
       
-      // Check for active playback
-      const playback = await spotifyRequest('/me/player');
-      if (!playback) {
-        updateStatus('ready', 'Ready - Start playing music in Spotify');
-      } else {
-        updateStatus('ready', 'Connected and ready!');
-      }
+      // Initial status
+      updateStatus('ready', 'Connected! Play music to begin');
       
       // Start monitoring with fast interval
       monitorInterval = setInterval(monitorPlayback, 500);
