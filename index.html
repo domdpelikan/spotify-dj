@@ -249,6 +249,14 @@
         that maintain the groove. Works with your regular Spotify controls too.
       </p>
       <button onclick="login()" class="btn btn-primary">Connect Spotify</button>
+      <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; font-size: 0.85em; text-align: left;">
+        <strong>Requirements:</strong>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+          <li>Spotify Premium account</li>
+          <li>Active Spotify app (desktop/mobile/web)</li>
+          <li>Music playing in Spotify</li>
+        </ul>
+      </div>
     </div>
 
     <div id="main-interface" style="display: none;">
@@ -519,19 +527,43 @@
 
     // Spotify API wrapper
     async function spotifyRequest(endpoint, options = {}) {
+      if (!accessToken) {
+        console.error('No access token');
+        return null;
+      }
+      
       try {
         const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
             ...options.headers
           },
           ...options
         });
 
-        if (response.status === 204) return true;
-        if (!response.ok) return null;
+        // Handle different response types
+        if (response.status === 204) return true; // No content (success)
+        if (response.status === 401) {
+          // Token expired
+          console.error('Token expired');
+          sessionStorage.removeItem('access_token');
+          updateStatus('error', 'Session expired - Please reconnect');
+          setTimeout(() => window.location.reload(), 2000);
+          return null;
+        }
+        if (response.status === 403) {
+          console.error('Forbidden - Premium required or wrong region');
+          updateStatus('error', 'Spotify Premium required');
+          return null;
+        }
+        if (!response.ok) {
+          console.error(`API Error ${response.status}:`, await response.text());
+          return null;
+        }
         
-        return await response.json();
+        const data = await response.json();
+        return data;
       } catch (error) {
         console.error('API error:', error);
         return null;
@@ -540,22 +572,34 @@
 
     // Core skip function - ULTRA FAST
     async function skipWithBeats() {
-      if (isSkipping || !currentTrack) return;
+      if (isSkipping) return;
+      
+      // Check if we have a current track
+      if (!currentTrack) {
+        updateStatus('error', 'No track playing');
+        return;
+      }
       
       isSkipping = true;
+      document.getElementById('skip-btn').disabled = true;
       const startTime = performance.now();
       updateStatus('processing', 'Analyzing beats...');
       
       try {
-        // Get current playback state
+        // Get fresh playback state
         const playback = await spotifyRequest('/me/player');
-        if (!playback) throw new Error('No playback');
+        if (!playback || !playback.item) {
+          throw new Error('No active playback');
+        }
 
-        const currentPos = playback.progress_ms;
+        const currentPos = playback.progress_ms || 0;
         const currentAnalysis = await beatMatcher.analyze(currentTrack.id);
         
         // Execute skip immediately
-        await spotifyRequest('/me/player/next', { method: 'POST' });
+        const skipResult = await spotifyRequest('/me/player/next', { method: 'POST' });
+        if (skipResult === null) {
+          throw new Error('Skip failed - Check Spotify');
+        }
         
         // If we have prebuffered analysis, use it
         if (nextTrackAnalysis) {
@@ -565,22 +609,32 @@
             nextTrackAnalysis
           );
           
-          // Quick poll for track change
+          // Quick poll for track change (max 1 second)
           let attempts = 0;
-          while (attempts < 20) { // Max 1 second
+          let trackChanged = false;
+          
+          while (attempts < 20 && !trackChanged) {
             await new Promise(r => setTimeout(r, 50));
             
             const newPlayback = await spotifyRequest('/me/player');
-            if (newPlayback?.item?.id !== currentTrack.id) {
-              // Track changed - apply seek
+            if (newPlayback && newPlayback.item && newPlayback.item.id !== currentTrack.id) {
+              trackChanged = true;
+              
+              // Apply seek to transition point
               if (transitionPoint > 500) {
-                await spotifyRequest(`/me/player/seek?position_ms=${transitionPoint}`, {
-                  method: 'PUT'
-                });
+                const seekResult = await spotifyRequest(
+                  `/me/player/seek?position_ms=${transitionPoint}`, 
+                  { method: 'PUT' }
+                );
+                console.log(`Seeked to ${transitionPoint}ms`);
               }
               break;
             }
             attempts++;
+          }
+          
+          if (!trackChanged) {
+            console.log('Track change not detected after skip');
           }
         }
         
@@ -592,9 +646,12 @@
         
         updateStatus('ready', 'Seamless transition!');
         
+        // Clear prebuffer for next track
+        nextTrackAnalysis = null;
+        
       } catch (error) {
         console.error('Skip error:', error);
-        updateStatus('error', 'Skip failed');
+        updateStatus('error', error.message || 'Skip failed');
       } finally {
         isSkipping = false;
         document.getElementById('skip-btn').disabled = false;
@@ -606,17 +663,35 @@
       try {
         const playback = await spotifyRequest('/me/player');
         
-        if (!playback || !playback.item) {
+        // Debug logging
+        console.log('Playback state:', playback);
+        
+        if (!playback) {
           updateEmptyState();
+          updateStatus('error', 'No active Spotify session. Play music in Spotify first.');
+          return;
+        }
+        
+        if (!playback.item) {
+          updateEmptyState();
+          updateStatus('ready', 'Ready - Play something in Spotify');
+          return;
+        }
+
+        // Check if it's a track (not podcast/episode)
+        if (playback.currently_playing_type !== 'track') {
+          updateEmptyState();
+          updateStatus('error', 'Only music tracks supported');
           return;
         }
 
         const track = playback.item;
-        const progress = playback.progress_ms;
-        const duration = track.duration_ms;
+        const progress = playback.progress_ms || 0;
+        const duration = track.duration_ms || 0;
         
         // Update UI
         updateTrackDisplay(track, progress, duration);
+        updateStatus('ready', 'Ready');
         
         // Handle track changes
         if (lastTrackId && lastTrackId !== track.id) {
@@ -656,6 +731,7 @@
         
       } catch (error) {
         console.error('Monitor error:', error);
+        updateStatus('error', 'Connection error - Refresh page');
       }
     }
 
@@ -743,11 +819,21 @@
 
     // Playback controls
     async function togglePlayPause() {
-      const playback = await spotifyRequest('/me/player');
-      if (playback?.is_playing) {
-        await spotifyRequest('/me/player/pause', { method: 'PUT' });
-      } else {
-        await spotifyRequest('/me/player/play', { method: 'PUT' });
+      try {
+        const playback = await spotifyRequest('/me/player');
+        if (!playback) {
+          updateStatus('error', 'No active Spotify device');
+          return;
+        }
+        
+        if (playback.is_playing) {
+          await spotifyRequest('/me/player/pause', { method: 'PUT' });
+        } else {
+          await spotifyRequest('/me/player/play', { method: 'PUT' });
+        }
+      } catch (error) {
+        console.error('Playback control error:', error);
+        updateStatus('error', 'Playback control failed');
       }
     }
 
@@ -756,7 +842,27 @@
       document.getElementById('login-section').style.display = 'none';
       document.getElementById('main-interface').style.display = 'block';
       
-      updateStatus('ready', 'Ready');
+      updateStatus('ready', 'Connecting to Spotify...');
+      
+      // Test the connection first
+      const testConnection = await spotifyRequest('/me');
+      if (!testConnection) {
+        updateStatus('error', 'Failed to connect. Please reconnect.');
+        setTimeout(() => {
+          logout();
+        }, 2000);
+        return;
+      }
+      
+      console.log('Connected as:', testConnection.display_name);
+      
+      // Check for active playback
+      const playback = await spotifyRequest('/me/player');
+      if (!playback) {
+        updateStatus('ready', 'Ready - Start playing music in Spotify');
+      } else {
+        updateStatus('ready', 'Connected and ready!');
+      }
       
       // Start monitoring with fast interval
       monitorInterval = setInterval(monitorPlayback, 500);
