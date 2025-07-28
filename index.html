@@ -129,6 +129,33 @@
       });
     }
 
+    async function getTrackFeatures(trackId) {
+      const features = await spotifyRequest(`/audio-features/${trackId}`);
+      return features ? {
+        tempo: features.tempo,
+        key: features.key,
+        mode: features.mode
+      } : null;
+    }
+
+    function calculateMixCompatibility(trackA, trackB) {
+      const bpmDiff = Math.abs(trackA.tempo - trackB.tempo);
+      const bpmScore = bpmDiff < 10 ? 1 : 0;
+
+      const keyMatch = trackA.key === trackB.key && trackA.mode === trackB.mode;
+      const relativeMatch = (trackA.key + 3) % 12 === trackB.key && trackA.mode !== trackB.mode;
+
+      const keyScore = keyMatch || relativeMatch ? 1 : 0;
+
+      const score = bpmScore + keyScore;
+
+      let label = 'Low Compatibility';
+      if (score === 2) label = 'Perfect Harmonic Match';
+      else if (score === 1) label = 'Partial Match';
+
+      return { score, label };
+    }
+
     async function fadeVolume(target, duration = 1000) {
       const steps = 20;
       const delay = duration / steps;
@@ -144,24 +171,37 @@
 
     async function performBeatMatchedSkip() {
       if (!accessToken) return;
-      document.getElementById('status').innerText = 'Mixing...';
+      document.getElementById('status').innerText = 'Analyzing Mix...';
 
       const queue = await spotifyRequest('/me/player/queue');
+      const playback = await spotifyRequest('/me/player/currently-playing');
+
+      const current = playback?.item;
       const next = queue?.queue?.[0];
       const cueTime = 16000;
 
-      if (!next) {
-        document.getElementById('status').innerText = 'No track in queue!';
+      if (!current || !next) {
+        document.getElementById('status').innerText = 'Missing track info';
         return;
       }
 
-      await fadeVolume(0, 1000);
-      await spotifyPost('/me/player/next');
+      const featuresA = await getTrackFeatures(current.id);
+      const featuresB = await getTrackFeatures(next.id);
 
+      const compatibility = calculateMixCompatibility(featuresA, featuresB);
+      console.log('Mix Score:', compatibility);
+
+      if (compatibility.score < 1) {
+        document.getElementById('status').innerText = 'Mix skipped: Incompatible track';
+        return;
+      }
+
+      await fadeVolume(0, 800);
+      await spotifyPost('/me/player/next');
       setTimeout(async () => {
         await spotifyPut(`/me/player/seek?position_ms=${cueTime}`);
-        await fadeVolume(100, 1000);
-        document.getElementById('status').innerText = 'Mix complete!';
+        await fadeVolume(100, 800);
+        document.getElementById('status').innerText = 'Mix complete: ' + compatibility.label;
       }, 200);
     }
 
