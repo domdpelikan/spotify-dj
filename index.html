@@ -45,6 +45,7 @@
       'user-read-currently-playing'
     ];
     let accessToken = null;
+    let lastTrackId = null;
 
     async function generateCodeChallenge(codeVerifier) {
       const data = new TextEncoder().encode(codeVerifier);
@@ -100,6 +101,7 @@
         sessionStorage.setItem('access_token', accessToken);
         history.replaceState(null, '', REDIRECT_URI);
         document.getElementById('status').innerText = 'Status: Connected';
+        monitorPlayback();
       }
     }
 
@@ -127,7 +129,7 @@
       });
     }
 
-    async function fadeVolume(target, duration = 2000) {
+    async function fadeVolume(target, duration = 1000) {
       const steps = 20;
       const delay = duration / steps;
       const state = await spotifyRequest('/me/player');
@@ -143,20 +145,47 @@
     async function performBeatMatchedSkip() {
       if (!accessToken) return;
       document.getElementById('status').innerText = 'Mixing...';
-      await fadeVolume(0);
-      await spotifyPost('/me/player/next');
-      await new Promise(r => setTimeout(r, 1000));
-      const nextTrack = await spotifyRequest('/me/player/currently-playing');
-      if (nextTrack?.item?.id) {
-        await spotifyPut(`/me/player/seek?position_ms=16000`);
+
+      const queue = await spotifyRequest('/me/player/queue');
+      const next = queue?.queue?.[0];
+      const cueTime = 16000;
+
+      if (!next) {
+        document.getElementById('status').innerText = 'No track in queue!';
+        return;
       }
-      await fadeVolume(100);
-      document.getElementById('status').innerText = 'Mix complete!';
+
+      await fadeVolume(0, 1000);
+      await spotifyPost('/me/player/next');
+
+      setTimeout(async () => {
+        await spotifyPut(`/me/player/seek?position_ms=${cueTime}`);
+        await fadeVolume(100, 1000);
+        document.getElementById('status').innerText = 'Mix complete!';
+      }, 200);
+    }
+
+    async function monitorPlayback() {
+      setInterval(async () => {
+        const playback = await spotifyRequest('/me/player');
+        if (!playback || !playback.item) return;
+
+        const currentId = playback.item.id;
+        const progress = playback.progress_ms;
+
+        if (currentId !== lastTrackId && progress < 2000) {
+          setTimeout(() => {
+            spotifyPut('/me/player/seek?position_ms=16000');
+          }, 200);
+          lastTrackId = currentId;
+        }
+      }, 1000);
     }
 
     window.onload = async () => {
       accessToken = sessionStorage.getItem('access_token');
       if (!accessToken) await handleRedirect();
+      else monitorPlayback();
     };
   </script>
 </body>
