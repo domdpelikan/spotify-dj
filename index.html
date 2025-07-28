@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spotify DJ Crossfade with Previews</title>
+  <title>Spotify DJ Crossfade Skip</title>
   <style>
     body {
       background: #121212;
@@ -35,42 +35,43 @@
   </style>
 </head>
 <body>
-  <h1>Preview DJ Crossfade</h1>
-  <button onclick="playPreviews()">Crossfade Previews</button>
+  <h1>Skip with Crossfade</h1>
+  <button onclick="skipWithCrossfade()">Skip Song</button>
   <div id="status">Status: Waiting</div>
   <audio id="deckA" src="https://p.scdn.co/mp3-preview/ee47c07a6b3b3ffb9bbd0056e0b378dd4c69db8a?cid=774b29d4f13844c495f206cafdad9c86" preload="auto"></audio>
   <audio id="deckB" src="https://p.scdn.co/mp3-preview/6c537ae8e1ea76c61670a3c44e51e45f84c2c552?cid=774b29d4f13844c495f206cafdad9c86" preload="auto"></audio>
 
   <script>
-    async function playPreviews() {
+    async function skipWithCrossfade() {
       const deckA = document.getElementById('deckA');
       const deckB = document.getElementById('deckB');
-      const fadeDuration = 5000; // 5 seconds fade
+      const fadeDuration = 3000; // 3 seconds fade for skip transition
 
-      document.getElementById('status').innerText = 'Playing Deck A...';
+      document.getElementById('status').innerText = 'Starting crossfade skip...';
       deckA.volume = 1;
       deckB.volume = 0;
+      deckA.currentTime = 10;
+      deckB.currentTime = 0;
       deckA.play();
 
-      // Start deck B and fade between them
       setTimeout(() => {
         deckB.play();
-        document.getElementById('status').innerText = 'Crossfading...';
+        let progress = 0;
         const step = 0.05;
         const interval = fadeDuration * step;
-        let progress = 0;
 
         const fade = setInterval(() => {
           progress += step;
-          deckA.volume = 1 - progress;
-          deckB.volume = progress;
+          deckA.volume = Math.max(0, 1 - progress);
+          deckB.volume = Math.min(1, progress);
+
           if (progress >= 1) {
             clearInterval(fade);
             deckA.pause();
-            document.getElementById('status').innerText = '✅ Crossfade Complete';
+            document.getElementById('status').innerText = '✅ Skip with Crossfade Complete';
           }
         }, interval);
-      }, 5000);
+      }, 1000);
     }
   </script>
 </body>
