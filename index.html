@@ -134,28 +134,29 @@
       return result.ok ? await result.json() : null;
     }
 
-    async function spotifyPut(endpoint) {
-      await fetch(`https://api.spotify.com/v1${endpoint}`, {
-        method: 'PUT',
-        headers: { Authorization: 'Bearer ' + accessToken }
-      });
-    }
-
-    async function spotifyPost(endpoint) {
-      await fetch(`https://api.spotify.com/v1${endpoint}`, {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + accessToken }
-      });
+    async function getBeatStart(trackId) {
+      const analysis = await spotifyRequest(`/audio-analysis/${trackId}`);
+      if (!analysis || !analysis.beats) return 0;
+      return Math.floor((analysis.beats[0]?.start || 0) * 1000);
     }
 
     async function performBeatMatchedSkip() {
       if (!accessToken) return;
       document.getElementById('status').innerText = 'Requesting skip...';
+
+      const playbackBefore = await spotifyRequest('/me/player/currently-playing');
+      if (!playbackBefore || !playbackBefore.item?.id) return;
+      const currentTrackId = playbackBefore.item.id;
+
       await spotifyPost('/me/player/next');
+
       setTimeout(async () => {
-        await spotifyPut('/me/player/seek?position_ms=16000');
-        document.getElementById('status').innerText = '✅ Skip complete';
-      }, 1000);
+        const playbackAfter = await spotifyRequest('/me/player/currently-playing');
+        const nextTrackId = playbackAfter?.item?.id;
+        const seekPosition = await getBeatStart(nextTrackId);
+        await spotifyPut(`/me/player/seek?position_ms=${seekPosition}`);
+        document.getElementById('status').innerText = '✅ Skip complete (beat matched)';
+      }, 1200);
     }
 
     async function monitorPlayback() {
@@ -165,8 +166,9 @@
         const currentId = playback.item.id;
         const progress = playback.progress_ms;
         if (currentId !== lastTrackId && progress < 2000) {
-          setTimeout(() => {
-            spotifyPut('/me/player/seek?position_ms=16000');
+          setTimeout(async () => {
+            const seekPosition = await getBeatStart(currentId);
+            spotifyPut(`/me/player/seek?position_ms=${seekPosition}`);
           }, 200);
           lastTrackId = currentId;
         }
