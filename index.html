@@ -101,7 +101,27 @@
         sessionStorage.setItem('access_token', accessToken);
         history.replaceState(null, '', REDIRECT_URI);
         document.getElementById('status').innerText = 'Status: Connected';
+        await transferToActiveDevice();
         monitorPlayback();
+      }
+    }
+
+    async function transferToActiveDevice() {
+      const devices = await spotifyRequest('/me/player/devices');
+      const active = devices?.devices?.find(d => d.is_active) || devices?.devices?.[0];
+      if (active?.id) {
+        await fetch('https://api.spotify.com/v1/me/player', {
+          method: 'PUT',
+          headers: {
+            Authorization: 'Bearer ' + accessToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ device_ids: [active.id], play: true })
+        });
+        console.log('Playback transferred to device:', active.name);
+      } else {
+        console.warn('No active device found');
+        document.getElementById('status').innerText = '⚠️ No active device. Open Spotify app and play a song.';
       }
     }
 
@@ -141,18 +161,13 @@
     function calculateMixCompatibility(trackA, trackB) {
       const bpmDiff = Math.abs(trackA.tempo - trackB.tempo);
       const bpmScore = bpmDiff < 10 ? 1 : 0;
-
       const keyMatch = trackA.key === trackB.key && trackA.mode === trackB.mode;
       const relativeMatch = (trackA.key + 3) % 12 === trackB.key && trackA.mode !== trackB.mode;
-
       const keyScore = keyMatch || relativeMatch ? 1 : 0;
-
       const score = bpmScore + keyScore;
-
       let label = 'Low Compatibility';
       if (score === 2) label = 'Perfect Harmonic Match';
       else if (score === 1) label = 'Partial Match';
-
       return { score, label };
     }
 
@@ -172,30 +187,23 @@
     async function performBeatMatchedSkip() {
       if (!accessToken) return;
       document.getElementById('status').innerText = 'Analyzing Mix...';
-
       const queue = await spotifyRequest('/me/player/queue');
       const playback = await spotifyRequest('/me/player/currently-playing');
-
       const current = playback?.item;
       const next = queue?.queue?.[0];
       const cueTime = 16000;
-
       if (!current || !next) {
         document.getElementById('status').innerText = 'Missing track info';
         return;
       }
-
       const featuresA = await getTrackFeatures(current.id);
       const featuresB = await getTrackFeatures(next.id);
-
       const compatibility = calculateMixCompatibility(featuresA, featuresB);
       console.log('Mix Score:', compatibility);
-
       if (compatibility.score < 1) {
         document.getElementById('status').innerText = 'Mix skipped: Incompatible track';
         return;
       }
-
       await fadeVolume(0, 800);
       await spotifyPost('/me/player/next');
       setTimeout(async () => {
@@ -209,10 +217,8 @@
       setInterval(async () => {
         const playback = await spotifyRequest('/me/player');
         if (!playback || !playback.item) return;
-
         const currentId = playback.item.id;
         const progress = playback.progress_ms;
-
         if (currentId !== lastTrackId && progress < 2000) {
           setTimeout(() => {
             spotifyPut('/me/player/seek?position_ms=16000');
@@ -225,7 +231,10 @@
     window.onload = async () => {
       accessToken = sessionStorage.getItem('access_token');
       if (!accessToken) await handleRedirect();
-      else monitorPlayback();
+      else {
+        await transferToActiveDevice();
+        monitorPlayback();
+      }
     };
   </script>
 </body>
