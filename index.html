@@ -42,7 +42,8 @@
     const SCOPES = [
       'user-read-playback-state',
       'user-modify-playback-state',
-      'user-read-currently-playing'
+      'user-read-currently-playing',
+      'user-read-private'
     ];
     let accessToken = null;
     let lastTrackId = null;
@@ -50,14 +51,12 @@
     async function generateCodeChallenge(codeVerifier) {
       const data = new TextEncoder().encode(codeVerifier);
       const digest = await crypto.subtle.digest('SHA-256', data);
-      return btoa(String.fromCharCode(...new Uint8Array(digest)))
-        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
     function generateRandomString(length) {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      return Array.from(crypto.getRandomValues(new Uint8Array(length)))
-        .map(x => chars[x % chars.length]).join('');
+      return Array.from(crypto.getRandomValues(new Uint8Array(length))).map(x => chars[x % chars.length]).join('');
     }
 
     async function login() {
@@ -149,68 +148,14 @@
       });
     }
 
-    async function getTrackFeatures(trackId) {
-      const features = await spotifyRequest(`/audio-features/${trackId}`);
-      return features ? {
-        tempo: features.tempo,
-        key: features.key,
-        mode: features.mode
-      } : null;
-    }
-
-    function calculateMixCompatibility(trackA, trackB) {
-      const bpmDiff = Math.abs(trackA.tempo - trackB.tempo);
-      const bpmScore = bpmDiff < 10 ? 1 : 0;
-      const keyMatch = trackA.key === trackB.key && trackA.mode === trackB.mode;
-      const relativeMatch = (trackA.key + 3) % 12 === trackB.key && trackA.mode !== trackB.mode;
-      const keyScore = keyMatch || relativeMatch ? 1 : 0;
-      const score = bpmScore + keyScore;
-      let label = 'Low Compatibility';
-      if (score === 2) label = 'Perfect Harmonic Match';
-      else if (score === 1) label = 'Partial Match';
-      return { score, label };
-    }
-
-    async function fadeVolume(target, duration = 1000) {
-      const steps = 20;
-      const delay = duration / steps;
-      const state = await spotifyRequest('/me/player');
-      const startVol = state.device.volume_percent;
-      const diff = target - startVol;
-      for (let i = 1; i <= steps; i++) {
-        const vol = startVol + diff * (i / steps);
-        await spotifyPut(`/me/player/volume?volume_percent=${Math.round(vol)}`);
-        await new Promise(r => setTimeout(r, delay));
-      }
-    }
-
     async function performBeatMatchedSkip() {
       if (!accessToken) return;
-      document.getElementById('status').innerText = 'Analyzing Mix...';
-      const queue = await spotifyRequest('/me/player/queue');
-      const playback = await spotifyRequest('/me/player/currently-playing');
-      const current = playback?.item;
-      const next = queue?.queue?.[0];
-      const cueTime = 16000;
-      if (!current || !next) {
-        document.getElementById('status').innerText = 'Missing track info';
-        return;
-      }
-      const featuresA = await getTrackFeatures(current.id);
-      const featuresB = await getTrackFeatures(next.id);
-      const compatibility = calculateMixCompatibility(featuresA, featuresB);
-      console.log('Mix Score:', compatibility);
-      if (compatibility.score < 1) {
-        document.getElementById('status').innerText = 'Mix skipped: Incompatible track';
-        return;
-      }
-      await fadeVolume(0, 800);
+      document.getElementById('status').innerText = 'Requesting skip...';
       await spotifyPost('/me/player/next');
       setTimeout(async () => {
-        await spotifyPut(`/me/player/seek?position_ms=${cueTime}`);
-        await fadeVolume(100, 800);
-        document.getElementById('status').innerText = 'Mix complete: ' + compatibility.label;
-      }, 200);
+        await spotifyPut('/me/player/seek?position_ms=16000');
+        document.getElementById('status').innerText = '✅ Skip complete';
+      }, 1000);
     }
 
     async function monitorPlayback() {
@@ -239,4 +184,3 @@
   </script>
 </body>
 </html>
-
